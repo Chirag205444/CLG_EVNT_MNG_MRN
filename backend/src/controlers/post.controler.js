@@ -3,7 +3,7 @@ const postModel = require('../models/post.model');
 // Create a new post (Coordinators only)
 const createPost = async (req, res) => {
     try {
-        const { title, description, category, venue, eventDate } = req.body;
+        const { title, description, category, venue, eventDate, maxParticipants, registrationDeadline } = req.body;
 
         // Validation checks
         if (!title || !title.trim()) {
@@ -27,12 +27,38 @@ const createPost = async (req, res) => {
             });
         }
 
+        let validatedMax = null;
+        if (maxParticipants !== undefined && maxParticipants !== null && maxParticipants !== "") {
+            const parsedMax = Number(maxParticipants);
+            if (isNaN(parsedMax) || parsedMax <= 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Max participants must be greater than 0"
+                });
+            }
+            validatedMax = parsedMax;
+        }
+
+        let validatedDeadline = null;
+        if (registrationDeadline !== undefined && registrationDeadline !== null && registrationDeadline !== "") {
+            const parsedDeadline = new Date(registrationDeadline);
+            if (isNaN(parsedDeadline.getTime()) || parsedDeadline <= new Date()) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Registration deadline must be a valid future date"
+                });
+            }
+            validatedDeadline = parsedDeadline;
+        }
+
         const post = await postModel.create({
             title: title.trim(),
             description: description.trim(),
             category,
             venue: venue ? venue.trim() : undefined,
             eventDate,
+            maxParticipants: validatedMax,
+            registrationDeadline: validatedDeadline,
             createdBy: req.user._id // reference to creator
         });
 
@@ -111,7 +137,7 @@ const getPostById = async (req, res) => {
 const updatePost = async (req, res) => {
     try {
         const { id } = req.params;
-        const { title, description, category, venue, eventDate } = req.body;
+        const { title, description, category, venue, eventDate, maxParticipants, registrationDeadline } = req.body;
 
         const post = await postModel.findById(id);
         if (!post) {
@@ -153,12 +179,52 @@ const updatePost = async (req, res) => {
             }
         }
 
+        if (maxParticipants !== undefined) {
+            if (maxParticipants !== null && maxParticipants !== "") {
+                const parsedMax = Number(maxParticipants);
+                if (isNaN(parsedMax) || parsedMax <= 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Max participants must be greater than 0"
+                    });
+                }
+            }
+        }
+
+        if (registrationDeadline !== undefined) {
+            if (registrationDeadline !== null && registrationDeadline !== "") {
+                const parsedDeadline = new Date(registrationDeadline);
+                if (isNaN(parsedDeadline.getTime()) || parsedDeadline <= new Date()) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Registration deadline must be a valid future date"
+                    });
+                }
+            }
+        }
+
         // Update fields
         if (title !== undefined) post.title = title.trim();
         if (description !== undefined) post.description = description.trim();
         if (category !== undefined) post.category = category;
         if (venue !== undefined) post.venue = venue.trim();
         if (eventDate !== undefined) post.eventDate = eventDate;
+
+        if (maxParticipants !== undefined) {
+            if (maxParticipants !== null && maxParticipants !== "") {
+                post.maxParticipants = Number(maxParticipants);
+            } else {
+                post.maxParticipants = null;
+            }
+        }
+
+        if (registrationDeadline !== undefined) {
+            if (registrationDeadline !== null && registrationDeadline !== "") {
+                post.registrationDeadline = new Date(registrationDeadline);
+            } else {
+                post.registrationDeadline = null;
+            }
+        }
 
         const updatedPost = await post.save();
 

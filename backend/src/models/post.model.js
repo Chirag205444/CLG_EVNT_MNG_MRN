@@ -26,6 +26,28 @@ const postSchema = new mongoose.Schema({
     eventDate: {
         type: Date
     },
+    maxParticipants: {
+        type: Number,
+        default: null,
+        validate: {
+            validator: function(v) {
+                if (v === null || v === undefined) return true;
+                return v > 0;
+            },
+            message: "Max participants must be greater than 0"
+        }
+    },
+    registrationDeadline: {
+        type: Date,
+        default: null,
+        validate: {
+            validator: function(v) {
+                if (v === null || v === undefined) return true;
+                return v > new Date();
+            },
+            message: "Registration deadline must be a valid future date"
+        }
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
