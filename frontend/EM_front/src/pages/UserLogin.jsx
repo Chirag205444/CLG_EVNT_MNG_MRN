@@ -37,8 +37,10 @@ function UserLogin() {
       console.log('Login Response:', response.data);
 
       // Handle successful login
-      // e.g., save user info to context/localStorage and redirect to dashboard
-      // alert(response.data.message || 'Login Successful!');
+      if (response.data && response.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        window.dispatchEvent(new Event('auth-change'));
+      }
 
       // For demonstration, navigate to a dashboard page (e.g. '/' or '/dashboard')
       navigate('/');
