@@ -5,5 +5,8 @@
   --color-brand-accent: #e05a2b;
   --color-brand-light: #fdf6f2;
   --color-brand-highlight: #f8c8b4;
+  --color-brand-purple: #7c3aed;
+  --color-brand-purple-light: #f5f3ff;
+  --color-brand-purple-highlight: #ddd6fe;
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 }

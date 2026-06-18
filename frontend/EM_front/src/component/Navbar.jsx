@@ -90,7 +90,7 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {/* User Brief info in Mobile drawer */}
           <div className="p-4 rounded-xl bg-brand-light/45 border border-brand-highlight/20 flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-brand-highlight text-brand-primary flex items-center justify-center font-bold text-lg shadow-inner">
+            <div className="w-10 h-10 rounded-full bg-brand-purple-highlight text-brand-purple flex items-center justify-center font-bold text-lg shadow-inner">
               {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div>
@@ -166,7 +166,7 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory }) {
 
       {/* MAIN TOP NAVBAR */}
       <header className="sticky top-0 z-30 bg-white border-b border-slate-100 shadow-sm/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-6 sm:px-12 lg:px-20 xl:px-24">
           <div className="flex justify-between items-center h-16">
             
             {/* Left Brand Container */}
@@ -250,7 +250,7 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory }) {
                     isProfileOpen ? 'bg-slate-50 text-slate-800 border-slate-300' : 'border-slate-200'
                   }`}
                 >
-                  <div className="w-7 h-7 rounded-lg bg-brand-highlight text-brand-primary flex items-center justify-center font-bold text-sm shadow-inner shrink-0">
+                  <div className="w-7 h-7 rounded-lg bg-brand-purple-highlight text-brand-purple flex items-center justify-center font-bold text-sm shadow-inner shrink-0">
                     {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                   </div>
                   <span className="hidden sm:inline text-sm font-semibold max-w-[100px] truncate">{user.name}</span>
@@ -262,7 +262,7 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory }) {
                   <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-3 px-3 z-40 animate-slide-in">
                     {/* Logged in User Meta */}
                     <div className="px-3.5 py-3 mb-2 rounded-xl bg-slate-50 border border-slate-100 flex items-center space-x-3">
-                      <div className="w-9 h-9 rounded-full bg-brand-highlight text-brand-primary flex items-center justify-center font-bold text-md shadow-inner shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-brand-purple-highlight text-brand-purple flex items-center justify-center font-bold text-md shadow-inner shrink-0">
                         {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                       </div>
                       <div className="min-w-0">
