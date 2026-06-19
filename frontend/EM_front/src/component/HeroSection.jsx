@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, GraduationCap, Users, User } from 'lucide-react';
 
 function HeroSection({ user }) {
+  const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
 
   const slides = [
@@ -162,7 +164,7 @@ function HeroSection({ user }) {
             title={user?.role === 'student' ? 'Only co-ordinators can host events' : undefined}
             onClick={() => {
               if (user?.role !== 'student') {
-                alert('Event coordination portal coming soon!');
+                navigate('/create-activity');
               }
             }}
             className={`w-full py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${user?.role === 'student'

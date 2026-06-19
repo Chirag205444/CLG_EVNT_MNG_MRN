@@ -10,3 +10,77 @@
   --color-brand-purple-highlight: #ddd6fe;
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
 }
+
+@keyframes modal-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes backdrop-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility animate-modal-in {
+  animation: modal-scale-in 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@utility animate-backdrop-in {
+  animation: backdrop-fade-in 0.15s ease-out forwards;
+}
+
+@keyframes bot-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+@keyframes bot-head-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-2px) rotate(1.5deg); }
+}
+
+@keyframes bot-left-arm-bob {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(8deg); }
+}
+
+@keyframes bot-blink {
+  0%, 45%, 47%, 51%, 53%, 100% { transform: scaleY(1); }
+  46%, 52% { transform: scaleY(0.08); }
+}
+
+@keyframes bot-wave {
+  0%, 65%, 100% { transform: rotate(0deg); }
+  70%, 80%, 90% { transform: rotate(-25deg); }
+  75%, 85% { transform: rotate(-5deg); }
+}
+
+@utility animate-bot-float {
+  animation: bot-float 4s infinite ease-in-out;
+}
+
+@utility animate-bot-head {
+  animation: bot-head-bob 4s infinite ease-in-out;
+}
+
+@utility animate-bot-left-arm {
+  animation: bot-left-arm-bob 4s infinite ease-in-out;
+}
+
+@utility animate-bot-blink {
+  animation: bot-blink 5s infinite;
+}
+
+@utility animate-bot-wave {
+  animation: bot-wave 5s infinite ease-in-out;
+}

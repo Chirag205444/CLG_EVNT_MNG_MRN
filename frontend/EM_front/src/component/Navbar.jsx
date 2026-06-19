@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Bot } from 'lucide-react';
 import { 
   FiBell, 
   FiChevronDown, 
@@ -27,7 +28,7 @@ export const categories = [
   { name: 'Club Activities', icon: MdGroups }
 ];
 
-function Navbar({ user, onLogout, selectedCategory, setSelectedCategory }) {
+function Navbar({ user, onLogout, selectedCategory, setSelectedCategory, onCategoriesClick, onBotIconClick }) {
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -194,9 +195,22 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory }) {
             {/* Right Desktop Controls & Mobile Actions */}
             <div className="flex items-center space-x-2 sm:space-x-4">
               
+              {/* Bot Quick-Jump Button */}
+              <button
+                onClick={onBotIconClick}
+                className="hidden sm:block p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:text-brand-accent hover:border-brand-accent hover:bg-slate-50 transition-all cursor-pointer shadow-xs"
+                aria-label="Scroll to Event Feed"
+                title="Scroll to Event Feed"
+              >
+                <Bot className="w-5 h-5" />
+              </button>
+
               {/* Desktop Categories Dropdown Toggle */}
               <button
-                onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
+                onClick={() => {
+                  setIsCategoriesOpen(!isCategoriesOpen);
+                  if (onCategoriesClick) onCategoriesClick();
+                }}
                 className={`hidden lg:flex items-center space-x-1.5 text-sm font-semibold px-4 py-2 rounded-xl border transition-all cursor-pointer ${
                   isCategoriesOpen 
                     ? 'border-brand-accent bg-brand-light text-brand-accent'
