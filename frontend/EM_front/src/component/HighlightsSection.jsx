@@ -1,83 +1,33 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Users } from 'lucide-react';
+import { mockActivities } from '../data/mockActivities';
 
-const activitiesData = [
-  {
-    id: 1,
-    title: 'AI & Machine Learning Workshop',
-    description: 'Learn foundations of Neural Networks, Deep Learning, and build real-world models using PyTorch.',
-    category: 'Workshop',
-    venue: 'Seminar Hall B',
-    eventDate: 'June 25',
-    maxSeats: 100,
-    registeredSeats: 55,
-    createdBy: 'Computer Science Club',
-    coordinatorOrg: 'IEEE Student Chapter',
-    featured: true,
-  },
-  {
-    id: 2,
-    title: 'Google Offcampus Drive 2026',
-    description: 'Exclusive placement drive for pre-final and final year students. Register to secure interview slots.',
-    category: 'Placement',
-    venue: 'Placement Cell Wing A',
-    eventDate: 'June 28',
-    maxSeats: 120,
-    registeredSeats: 110,
-    createdBy: 'Placement Cell',
-    coordinatorOrg: 'Placement Division',
-  },
-  {
-    id: 3,
-    title: 'Campus CodeQuest Hackathon',
-    description: '36-hour hackathon to solve real-world college problems. Exciting cash prizes and internship tracks.',
-    category: 'Hackathon',
-    venue: 'Main Auditorium',
-    eventDate: 'July 02',
-    maxSeats: 200,
-    registeredSeats: 145,
-    createdBy: 'Dev Club',
-    coordinatorOrg: 'Computer Science Dept',
-  },
-  {
-    id: 4,
-    title: 'Fullstack React Architecture Masterclass',
-    description: 'Dive deep into state management, performance optimization, React 19 features, and component design.',
-    category: 'Workshop',
-    venue: 'Lab 402',
-    eventDate: 'June 30',
-    maxSeats: 50,
-    registeredSeats: 48,
-    createdBy: 'WebDev Society',
-    coordinatorOrg: 'ACM Student Chapter',
-  },
-  {
-    id: 5,
-    title: 'TEDx Campus Speaking Auditions',
-    description: 'A platform to share your ideas. Auditions open for all branches. Prepare a 3-minute pitch.',
-    category: 'Event',
-    venue: 'OAT (Open Air Theatre)',
-    eventDate: 'July 05',
-    maxSeats: 150,
-    registeredSeats: 45,
-    createdBy: 'Cultural Committee',
-    coordinatorOrg: 'Literary Society',
-  },
-  {
-    id: 6,
-    title: 'Summer Internship Orientation 2026',
-    description: 'Essential guidelines for pre-final year students to secure paid summer internships and credits.',
-    category: 'Announcement',
-    venue: 'Srinivasa Ramanujan Hall',
-    eventDate: 'June 26',
-    maxSeats: 300,
-    registeredSeats: 290,
-    createdBy: 'Placement Cell Coordinator',
-    coordinatorOrg: 'Placement Division',
-  },
-];
+const formatShortDate = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const months = ['June', 'June', 'June', 'June', 'June', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      // Keep alignment with original mock month labels
+      const mIdx = parseInt(parts[1], 10) - 1;
+      const mName = mIdx === 5 ? 'June' : (mIdx === 6 ? 'July' : 'June');
+      return `${mName} ${parseInt(parts[2], 10)}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+};
+
+const activitiesData = mockActivities.filter(a => a.featured).map(a => ({
+  ...a,
+  maxSeats: a.maxParticipants,
+  eventDate: formatShortDate(a.eventDate)
+}));
 
 function HighlightsSection() {
+  const navigate = useNavigate();
   const [cardsToShow, setCardsToShow] = useState(3);
   const [currentIndex, setCurrentIndex] = useState(3); // Start at original index 0 (which is offset by 3 clones)
   const [transitionEnabled, setTransitionEnabled] = useState(true);
@@ -388,8 +338,11 @@ function HighlightsSection() {
               return (
                 <div
                   key={`${activity.id}-${index}`}
-                  className="w-full md:w-1/3 shrink-0 p-2.5 flex"
-                  onClick={handleCardInteraction}
+                  className="w-full md:w-1/3 shrink-0 p-2.5 flex cursor-pointer"
+                  onClick={(e) => {
+                    handleCardInteraction();
+                    navigate(`/activity/${activity.id}`);
+                  }}
                 >
                   <div
                     className={`border rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between flex-1 relative ${getCardBgClass(activity.id, isFeatured)} ${isFeatured

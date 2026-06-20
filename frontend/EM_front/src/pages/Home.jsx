@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import Navbar from '../component/Navbar';
 import HeroSection from '../component/HeroSection';
 import HighlightsSection from '../component/HighlightsSection';
@@ -7,17 +7,6 @@ import EventFeed from '../component/EventFeed';
 function Home({ user, onLogout }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const feedSectionRef = useRef(null);
-  const isFirstRender = useRef(true);
-
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    if (feedSectionRef.current) {
-      feedSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, [selectedCategory]);
 
   return (
     <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans text-slate-800">
@@ -27,7 +16,12 @@ function Home({ user, onLogout }) {
         user={user}
         onLogout={onLogout}
         selectedCategory={selectedCategory}
-        setSelectedCategory={setSelectedCategory}
+        setSelectedCategory={(cat) => {
+          setSelectedCategory(cat);
+          if (feedSectionRef.current) {
+            feedSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }}
         onCategoriesClick={() => {
           if (feedSectionRef.current) {
             feedSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });

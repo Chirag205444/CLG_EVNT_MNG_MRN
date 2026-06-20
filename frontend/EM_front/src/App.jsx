@@ -5,6 +5,48 @@ import UserLogin from './pages/UserLogin';
 import Welcomepage from './pages/Welcomepage';
 import Home from './pages/Home';
 import ActivityForm from './pages/ActivityForm';
+import ActivityDetail from './pages/ActivityDetail';
+
+function ActivityDetailRoute() {
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const stored = localStorage.getItem('user');
+        setUser(stored ? JSON.parse(stored) : null);
+      } catch {
+        setUser(null);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('auth-change', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('auth-change', handleStorage);
+    };
+  }, []);
+
+  if (user) {
+    return (
+      <ActivityDetail
+        user={user}
+        onLogout={() => {
+          localStorage.removeItem('user');
+          window.dispatchEvent(new Event('auth-change'));
+        }}
+      />
+    );
+  }
+  return <Navigate to="/" replace />;
+}
 
 function MainRoute() {
   const [user, setUser] = useState(() => {
@@ -105,6 +147,9 @@ function App() {
         {/* Activity Creation Form Route */}
         <Route path="/create-activity" element={<ActivityFormRoute />} />
         <Route path="/activity-form" element={<Navigate to="/create-activity" replace />} />
+        
+        {/* Activity Details Route */}
+        <Route path="/activity/:id" element={<ActivityDetailRoute />} />
         
         {/* Fallback for undefined routes redirecting to landing */}
         <Route path="*" element={<Navigate to="/" replace />} />

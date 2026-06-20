@@ -1,49 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Send, X, Sparkles, Bot, Calendar, MapPin } from 'lucide-react';
+import { mockActivities } from '../data/mockActivities';
 
-// Initial activities mock data conforming to required structure
-const initialActivities = [
-  {
-    id: 1,
-    title: 'Important Notice: Hackathon Submissions Extended',
-    description: 'Make sure to upload your repository before the deadline. We are excited to see your builds. Refer to the guidelines for final submission requirements and demo video format.',
-    category: 'Announcement',
-    createdBy: 'Club Coordinator CS',
-    createdAt: '2 hours ago',
-    venue: 'Online / DevPortal',
-    eventDate: 'June 20, 2026'
-  },
-  {
-    id: 2,
-    title: 'Tech Talk: Preparing for Tech Placements in 2026',
-    description: 'Join us for an exclusive session with industry veterans sharing tips on cracking coding interviews, system design rounds, and resume building. RSVP now to receive the meeting link.',
-    category: 'Placement',
-    createdBy: 'Placement Director',
-    createdAt: '5 hours ago',
-    venue: 'Main Seminar Hall',
-    eventDate: 'June 22, 2026'
-  },
-  {
-    id: 3,
-    title: 'AI & Machine Learning Workshop',
-    description: 'Learn the foundations of Neural Networks, Deep Learning, and build real-world models using PyTorch. Ideal for beginners and intermediate learners.',
-    category: 'Workshop',
-    createdBy: 'Computer Science Club',
-    createdAt: '1 day ago',
-    venue: 'Seminar Hall B',
-    eventDate: 'June 25, 2026'
-  },
-  {
-    id: 4,
-    title: 'TEDx Campus Speaking Auditions',
-    description: 'A platform to share your ideas. Auditions open for all branches. Prepare a 3-minute pitch on any topic of your choice.',
-    category: 'Event',
-    createdBy: 'Cultural Committee',
-    createdAt: '2 days ago',
-    venue: 'OAT (Open Air Theatre)',
-    eventDate: 'July 05, 2026'
+const formatLongDate = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${months[parseInt(parts[1], 10) - 1]} ${parseInt(parts[2], 10)}, ${parts[0]}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
   }
-];
+};
+
+// Initial activities mock data synced from centralized mockActivities
+const initialActivities = [7, 8, 1, 5].map(id => {
+  const a = mockActivities.find(item => item.id === id);
+  return {
+    ...a,
+    createdBy: a.coordinatorOrg || a.createdBy,
+    createdAt: id === 7 ? '2 hours ago' : (id === 8 ? '5 hours ago' : (id === 1 ? '1 day ago' : '2 days ago')),
+    eventDate: formatLongDate(a.eventDate)
+  };
+});
 
 // Helper styles matching HighlightsSection
 const getCategoryStyles = (category) => {
@@ -90,6 +73,7 @@ const getInitials = (name) => {
 };
 
 const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -251,7 +235,8 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
               filteredActivities.map((activity) => (
                 <div 
                   key={activity.id} 
-                  className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between"
+                  onClick={() => navigate(`/activity/${activity.id}`)}
+                  className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between cursor-pointer"
                 >
                   {/* Top Row: Avatar & Coordinator */}
                   <div className="flex items-center space-x-3 mb-4">
