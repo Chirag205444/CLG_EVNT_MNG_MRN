@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import {
     Calendar,
     MapPin,
@@ -16,7 +17,8 @@ import {
     Building,
     User,
     ShieldCheck,
-    PhoneCall
+    PhoneCall,
+    Loader2
 } from 'lucide-react';
 import Navbar from '../component/Navbar';
 import { mockActivities } from '../data/mockActivities';
@@ -169,8 +171,9 @@ function ActivityDetail({ user, onLogout }) {
     const { id } = useParams();
     const navigate = useNavigate();
 
-    // Find current activity
-    const activity = mockActivities.find((act) => act.id === parseInt(id, 10));
+    const [activity, setActivity] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [relatedActivities, setRelatedActivities] = useState([]);
 
     // State management for registration simulation
     const [isRegistered, setIsRegistered] = useState(false);
@@ -182,25 +185,98 @@ function ActivityDetail({ user, onLogout }) {
     // Scroll to top on mount or when ID changes
     useEffect(() => {
         window.scrollTo(0, 0);
-    }, [id]);
 
-    // Sync registration state with localStorage
-    useEffect(() => {
-        if (!activity) return;
-        try {
-            const registeredIds = JSON.parse(localStorage.getItem('registered_activities') || '[]');
-            const hasRegistered = registeredIds.includes(activity.id);
-            setIsRegistered(hasRegistered);
-            setSeatsCount(activity.registeredSeats + (hasRegistered ? 1 : 0));
-        } catch {
-            setSeatsCount(activity.registeredSeats);
-        }
-    }, [activity, id]);
+        const fetchActivityAndRelated = async () => {
+            setIsLoading(true);
+            try {
+                const userObj = JSON.parse(localStorage.getItem('user') || 'null');
+                const token = userObj?.token;
+                const headers = { Authorization: `Bearer ${token}` };
+
+                // Fetch current activity
+                const resActivity = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/posts/${id}`, {
+                    headers,
+                    withCredentials: true
+                });
+
+                if (resActivity.data && resActivity.data.success) {
+                    const actData = resActivity.data.data;
+                    
+                    // Normalize backend fields for details view
+                    const mappedActivity = {
+                        ...actData,
+                        id: actData._id,
+                        createdBy: actData.createdBy?.name || actData.createdBy || 'Coordinator',
+                        coordinatorOrg: actData.coordinatorOrg || actData.createdBy?.name || 'Coordinator',
+                        registeredSeats: actData.registeredSeats || 0
+                    };
+                    
+                    setActivity(mappedActivity);
+
+                    // Sync registration state with localStorage
+                    try {
+                        const registeredIds = JSON.parse(localStorage.getItem('registered_activities') || '[]');
+                        const hasRegistered = registeredIds.includes(mappedActivity.id);
+                        setIsRegistered(hasRegistered);
+                        setSeatsCount(mappedActivity.registeredSeats + (hasRegistered ? 1 : 0));
+                    } catch {
+                        setSeatsCount(mappedActivity.registeredSeats);
+                    }
+
+                    // Fetch all activities for related section
+                    const resAll = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/posts`, {
+                        headers,
+                        withCredentials: true
+                    });
+                    
+                    if (resAll.data && resAll.data.success) {
+                        const allActs = resAll.data.data;
+                        const related = allActs
+                            .filter((act) => act._id !== mappedActivity.id)
+                            .sort((a, b) => {
+                                if (a.category === mappedActivity.category && b.category !== mappedActivity.category) return -1;
+                                if (a.category !== mappedActivity.category && b.category === mappedActivity.category) return 1;
+                                return 0;
+                            })
+                            .slice(0, 3)
+                            .map(r => ({
+                                ...r,
+                                id: r._id,
+                                createdBy: r.createdBy?.name || r.createdBy || 'Coordinator',
+                                coordinatorOrg: r.coordinatorOrg || r.createdBy?.name || 'Coordinator'
+                            }));
+                        setRelatedActivities(related);
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching activity detail:", err);
+                setActivity(null);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchActivityAndRelated();
+    }, [id]);
 
     // Back action helper
     const handleBackToDashboard = () => {
         navigate('/');
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800">
+                <Navbar user={user} onLogout={onLogout} />
+                <main className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+                    <div className="max-w-md w-full bg-white border border-slate-100 rounded-3xl p-8 shadow-xl text-center space-y-4 animate-modal-in flex flex-col items-center justify-center">
+                        <Loader2 className="w-8 h-8 animate-spin text-brand-accent mx-auto" />
+                        <p className="text-sm font-semibold text-slate-600">Loading activity details...</p>
+                    </div>
+                </main>
+            </div>
+        );
+    }
 
     if (!activity) {
         return (
@@ -269,7 +345,7 @@ function ActivityDetail({ user, onLogout }) {
                 localStorage.setItem('registered_activities', JSON.stringify(registeredIds));
             }
             setIsRegistered(true);
-            setSeatsCount(activity.registeredSeats + 1);
+            setSeatsCount((prev) => prev + 1);
             setModalSuccess(true);
         } catch (e) {
             console.error(e);
@@ -285,7 +361,7 @@ function ActivityDetail({ user, onLogout }) {
             const filtered = registeredIds.filter(id => id !== activity.id);
             localStorage.setItem('registered_activities', JSON.stringify(filtered));
             setIsRegistered(false);
-            setSeatsCount(activity.registeredSeats);
+            setSeatsCount((prev) => Math.max(0, prev - 1));
             setModalSuccess(true);
         } catch (e) {
             console.error(e);
@@ -294,15 +370,7 @@ function ActivityDetail({ user, onLogout }) {
         }
     };
 
-    // Related activities selection (displays 3 items prioritizing same category, excluding current)
-    const relatedActivities = mockActivities
-        .filter((act) => act.id !== activity.id)
-        .sort((a, b) => {
-            if (a.category === activity.category && b.category !== activity.category) return -1;
-            if (a.category !== activity.category && b.category === activity.category) return 1;
-            return 0;
-        })
-        .slice(0, 3);
+
 
     // Helper styles for related cards
     const getCardBgClass = (cardId) => {

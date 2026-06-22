@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import Navbar from '../component/Navbar';
 import { 
   Calendar, 
@@ -158,7 +159,7 @@ function ActivityForm({ user, onLogout }) {
     }, 85000 / 100); // ~850ms simulation
   };
 
-  const handlePublish = (e) => {
+  const handlePublish = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
@@ -189,17 +190,42 @@ function ActivityForm({ user, onLogout }) {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/posts`,
+        {
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          venue: formData.venue || undefined,
+          eventDate: formData.eventDate || undefined,
+          maxParticipants: formData.maxParticipants || undefined,
+          registrationDeadline: formData.registrationDeadline || undefined
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${user?.token}`
+          },
+          withCredentials: true
+        }
+      );
+
       setIsLoading(false);
       setCardStatus('Published');
-      setSuccess('Activity published successfully! Redirecting you to the home feed...');
+      setSuccess('Activity Published Successfully');
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // Simulate redirection to Dashboard home page
+      // Redirect to Dashboard home page
       setTimeout(() => {
         navigate('/');
       }, 1800);
-    }, 1000);
+    } catch (err) {
+      console.error('Publish Error:', err);
+      setIsLoading(false);
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to publish activity. Please try again.';
+      setError(errorMsg);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   // 1. Access Denied UI if current role is Student

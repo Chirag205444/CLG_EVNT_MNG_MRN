@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Calendar, MapPin, Users } from 'lucide-react';
+import axios from 'axios';
+import { ChevronLeft, ChevronRight, Calendar, MapPin, Users, Loader2 } from 'lucide-react';
 import { mockActivities } from '../data/mockActivities';
 
 const formatShortDate = (dateStr) => {
@@ -20,16 +21,12 @@ const formatShortDate = (dateStr) => {
   }
 };
 
-const activitiesData = mockActivities.filter(a => a.featured).map(a => ({
-  ...a,
-  maxSeats: a.maxParticipants,
-  eventDate: formatShortDate(a.eventDate)
-}));
-
 function HighlightsSection() {
   const navigate = useNavigate();
+  const [activitiesData, setActivitiesData] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [cardsToShow, setCardsToShow] = useState(3);
-  const [currentIndex, setCurrentIndex] = useState(3); // Start at original index 0 (which is offset by 3 clones)
+  const [currentIndex, setCurrentIndex] = useState(0); 
   const [transitionEnabled, setTransitionEnabled] = useState(true);
 
   // Drag states
@@ -59,13 +56,74 @@ function HighlightsSection() {
     return () => window.removeEventListener('resize', updateCardsToShow);
   }, []);
 
+  useEffect(() => {
+    const fetchHighlights = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        const token = user?.token;
+        const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/posts`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          withCredentials: true
+        });
+
+        if (response.data && response.data.success) {
+          // Filter to only show events uploaded in the current calendar week (Monday to Sunday)
+          const currentWeekEvents = response.data.data.filter(a => {
+            if (!a.createdAt) return false;
+            const createdDate = new Date(a.createdAt);
+            const now = new Date();
+
+            // Find start of week (Monday)
+            const currentDay = now.getDay();
+            const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() + distanceToMonday);
+            startOfWeek.setHours(0, 0, 0, 0);
+
+            // Find end of week (Sunday midnight / next Monday morning)
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+            return createdDate >= startOfWeek && createdDate < endOfWeek;
+          }).map(a => {
+            const cleanDateStr = a.eventDate ? a.eventDate.split('T')[0] : '';
+            return {
+              ...a,
+              id: a._id,
+              maxSeats: a.maxParticipants,
+              registeredSeats: a.registeredSeats || 0, // Fallback
+              eventDate: formatShortDate(cleanDateStr),
+              createdBy: a.createdBy?.name || a.createdBy || 'Coordinator',
+              coordinatorOrg: a.coordinatorOrg || a.createdBy?.name || 'Coordinator'
+            };
+          });
+
+          setActivitiesData(currentWeekEvents);
+          if (currentWeekEvents.length >= 3) {
+            setCurrentIndex(3);
+          } else {
+            setCurrentIndex(0);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching highlights:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHighlights();
+  }, []);
+
   // Clone slides to support infinite loop.
   // We clone last 3 at start and first 3 at end.
-  const clonedActivities = [
+  const clonedActivities = activitiesData.length >= 3 ? [
     ...activitiesData.slice(-3),
     ...activitiesData,
     ...activitiesData.slice(0, 3)
-  ];
+  ] : activitiesData;
 
   // Auto-slide trigger
   const startAutoSlide = () => {
@@ -104,14 +162,27 @@ function HighlightsSection() {
 
   // Handle slide transitions
   const handleNext = () => {
-    setCurrentIndex((prev) => prev + 1);
+    if (activitiesData.length <= cardsToShow) return;
+    setCurrentIndex((prev) => {
+      if (activitiesData.length >= 3) {
+        return prev + 1;
+      }
+      return Math.min(prev + 1, activitiesData.length - cardsToShow);
+    });
   };
 
   const handlePrev = () => {
-    setCurrentIndex((prev) => prev - 1);
+    if (activitiesData.length <= cardsToShow) return;
+    setCurrentIndex((prev) => {
+      if (activitiesData.length >= 3) {
+        return prev - 1;
+      }
+      return Math.max(prev - 1, 0);
+    });
   };
 
   const handleTransitionEnd = () => {
+    if (activitiesData.length < 3) return;
     // When reaching index 9 (clone of 0th element), jump instantly back to index 3 (original 0)
     if (currentIndex >= activitiesData.length + 3) {
       setTransitionEnabled(false);
@@ -311,111 +382,125 @@ function HighlightsSection() {
 
       {/* Carousel Track Viewport Container */}
       <div className="relative">
-        <div
-          ref={containerRef}
-          className={`overflow-hidden rounded-2xl w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'
-            }`}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseLeave}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
-        >
+        {isLoading ? (
+          <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-500 shadow-xs flex flex-col items-center justify-center space-y-3">
+            <Loader2 className="w-8 h-8 animate-spin text-brand-accent" />
+            <p className="text-sm font-semibold text-slate-600">Loading highlights...</p>
+          </div>
+        ) : activitiesData.length === 0 ? (
+          <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-500 shadow-xs flex flex-col items-center justify-center">
+            <p className="font-bold text-sm text-slate-800">No highlights this week</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Check back later for new events and campus updates.
+            </p>
+          </div>
+        ) : (
           <div
-            className="flex"
-            style={{
-              transform: getTranslateX(),
-              transition: trackTransition,
-            }}
-            onTransitionEnd={handleTransitionEnd}
+            ref={containerRef}
+            className={`overflow-hidden rounded-2xl w-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'
+              }`}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseLeave}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
           >
-            {clonedActivities.map((activity, index) => {
-              // Highlight conditions: We highlight the activity if it's the primary "featured" item.
-              const isFeatured = activity.featured;
+            <div
+              className="flex"
+              style={{
+                transform: getTranslateX(),
+                transition: trackTransition,
+              }}
+              onTransitionEnd={handleTransitionEnd}
+            >
+              {clonedActivities.map((activity, index) => {
+                // Highlight conditions: We highlight the activity if it's the primary "featured" item.
+                const isFeatured = activity.featured;
 
-              return (
-                <div
-                  key={`${activity.id}-${index}`}
-                  className="w-full md:w-1/3 shrink-0 p-2.5 flex cursor-pointer"
-                  onClick={(e) => {
-                    handleCardInteraction();
-                    navigate(`/activity/${activity.id}`);
-                  }}
-                >
+                return (
                   <div
-                    className={`border rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between flex-1 relative ${getCardBgClass(activity.id, isFeatured)} ${isFeatured
-                      ? 'ring-2 ring-amber-400/10 bg-gradient-to-b from-amber-500/[0.015] to-transparent'
-                      : ''
-                      }`}
+                    key={`${activity.id}-${index}`}
+                    className="w-full md:w-1/3 shrink-0 p-2.5 flex cursor-pointer"
+                    onClick={(e) => {
+                      handleCardInteraction();
+                      navigate(`/activity/${activity.id}`);
+                    }}
                   >
-                    {/* Featured Top Border Accent Line */}
-                    {isFeatured && (
-                      <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 to-amber-500 rounded-t-2xl" />
-                    )}
+                    <div
+                      className={`border rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between flex-1 relative ${getCardBgClass(activity.id, isFeatured)} ${isFeatured
+                        ? 'ring-2 ring-amber-400/10 bg-gradient-to-b from-amber-500/[0.015] to-transparent'
+                        : ''
+                        }`}
+                    >
+                      {/* Featured Top Border Accent Line */}
+                      {isFeatured && (
+                        <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 to-amber-500 rounded-t-2xl" />
+                      )}
 
-                    <div>
-                      {/* Top Row: Category Badge & Organization */}
-                      <div className="flex items-center justify-between gap-2 mb-3.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border ${getCategoryStyles(activity.category)}`}>
-                            {activity.category}
-                          </span>
-                          {isFeatured && (
-                            <span className="bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase flex items-center gap-0.5">
-                              ✨ Featured
+                      <div>
+                        {/* Top Row: Category Badge & Organization */}
+                        <div className="flex items-center justify-between gap-2 mb-3.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border ${getCategoryStyles(activity.category)}`}>
+                              {activity.category}
                             </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] font-semibold text-slate-400 max-w-[120px] truncate" title={activity.coordinatorOrg}>
-                          {activity.coordinatorOrg}
-                        </span>
-                      </div>
-
-                      {/* Main Title & Description */}
-                      <h3 className="font-bold text-slate-800 text-sm md:text-[15px] group-hover:text-brand-accent transition-colors leading-snug line-clamp-1 mb-1.5">
-                        {activity.title}
-                      </h3>
-                      <p className="text-[11px] text-slate-500 line-clamp-3 leading-relaxed mb-5">
-                        {activity.description}
-                      </p>
-                    </div>
-
-                    {/* Bottom stats and footer info */}
-                    <div className="space-y-4 pt-3.5 border-t border-slate-50">
-                      {/* Information Row */}
-                      <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-500 font-medium">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">{activity.eventDate}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate" title={activity.venue}>{activity.venue}</span>
-                        </div>
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span className="truncate">
-                            {activity.registeredSeats} / {activity.maxSeats} Seats
+                            {isFeatured && (
+                              <span className="bg-amber-100 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase flex items-center gap-0.5">
+                                ✨ Featured
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-semibold text-slate-400 max-w-[120px] truncate" title={activity.coordinatorOrg}>
+                            {activity.coordinatorOrg}
                           </span>
                         </div>
+
+                        {/* Main Title & Description */}
+                        <h3 className="font-bold text-slate-800 text-sm md:text-[15px] group-hover:text-brand-accent transition-colors leading-snug line-clamp-1 mb-1.5">
+                          {activity.title}
+                        </h3>
+                        <p className="text-[11px] text-slate-500 line-clamp-3 leading-relaxed mb-5">
+                          {activity.description}
+                        </p>
                       </div>
 
-                      {/* Footer Row */}
-                      <div className="flex items-center justify-between text-[10px] text-slate-400">
-                        <span>Posted by:</span>
-                        <span className="font-semibold text-slate-600 truncate max-w-[160px]">
-                          {activity.createdBy}
-                        </span>
+                      {/* Bottom stats and footer info */}
+                      <div className="space-y-4 pt-3.5 border-t border-slate-50">
+                        {/* Information Row */}
+                        <div className="grid grid-cols-3 gap-2 text-[11px] text-slate-500 font-medium">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">{activity.eventDate}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate" title={activity.venue}>{activity.venue || 'Online'}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span className="truncate">
+                              {activity.maxSeats ? `${activity.registeredSeats} / ${activity.maxSeats} Seats` : `${activity.registeredSeats} Registered`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Footer Row */}
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span>Posted by:</span>
+                          <span className="font-semibold text-slate-600 truncate max-w-[160px]">
+                            {activity.createdBy}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Small Touch Slide Indicator for Mobile Viewports */}
         <div className="flex md:hidden justify-center items-center gap-1.5 mt-3">
@@ -423,7 +508,9 @@ function HighlightsSection() {
             // Find active dot index.
             // On mobile cardsToShow is 1, so indices are 3 to 3+L-1.
             // Map currentIndex to local index.
-            const isActive = (currentIndex - 3 + activitiesData.length) % activitiesData.length === idx;
+            const isActive = activitiesData.length >= 3 
+              ? (currentIndex - 3 + activitiesData.length) % activitiesData.length === idx
+              : currentIndex === idx;
             return (
               <span
                 key={idx}

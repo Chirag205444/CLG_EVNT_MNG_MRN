@@ -63,7 +63,7 @@ const registerUser = async (req, res) => {
         
         return res.status(201).json({
             message: "User registered successfully",
-            user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role }
+            user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, token }
         });
 
     } catch (err) {
@@ -102,7 +102,7 @@ const loginUser = async (req, res) => {
         res.cookie("EVNT_token", token, getCookieOptions());
         return res.status(200).json({
             message: "User logged in successfully",
-            user: { id: user._id, name: user.name, email: user.email, role: user.role }
+            user: { id: user._id, name: user.name, email: user.email, role: user.role, token }
         });
 
     } catch (err) {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Send, X, Sparkles, Bot, Calendar, MapPin } from 'lucide-react';
+import axios from 'axios';
+import { Search, Send, X, Sparkles, Bot, Calendar, MapPin, Loader2 } from 'lucide-react';
 import { mockActivities } from '../data/mockActivities';
 
 const formatLongDate = (dateStr) => {
@@ -17,16 +18,25 @@ const formatLongDate = (dateStr) => {
   }
 };
 
-// Initial activities mock data synced from centralized mockActivities
-const initialActivities = [7, 8, 1, 5].map(id => {
-  const a = mockActivities.find(item => item.id === id);
-  return {
-    ...a,
-    createdBy: a.coordinatorOrg || a.createdBy,
-    createdAt: id === 7 ? '2 hours ago' : (id === 8 ? '5 hours ago' : (id === 1 ? '1 day ago' : '2 days ago')),
-    eventDate: formatLongDate(a.eventDate)
-  };
-});
+const formatTimeAgo = (dateStr) => {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  } catch {
+    return dateStr;
+  }
+};
 
 // Helper styles matching HighlightsSection
 const getCategoryStyles = (category) => {
@@ -74,6 +84,8 @@ const getInitials = (name) => {
 
 const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
   const navigate = useNavigate();
+  const [activities, setActivities] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -87,6 +99,31 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
 
   const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || 'null');
+        const token = user?.token;
+        const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/posts`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          withCredentials: true
+        });
+
+        if (response.data && response.data.success) {
+          setActivities(response.data.data);
+        }
+      } catch (err) {
+        console.error('Fetch Feed Error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchActivities();
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -161,26 +198,29 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
   };
 
   // Filter activities based on search query and category selected from navbar
-  const filteredActivities = initialActivities.filter((activity) => {
+  const filteredActivities = activities.filter((activity) => {
     const query = searchQuery.toLowerCase();
     const matchesSearch = (
-      activity.title.toLowerCase().includes(query) ||
-      activity.description.toLowerCase().includes(query) ||
-      activity.category.toLowerCase().includes(query) ||
-      activity.venue.toLowerCase().includes(query) ||
-      activity.createdBy.toLowerCase().includes(query)
+      activity.title?.toLowerCase().includes(query) ||
+      activity.description?.toLowerCase().includes(query) ||
+      activity.category?.toLowerCase().includes(query) ||
+      activity.venue?.toLowerCase().includes(query) ||
+      (typeof activity.createdBy === 'object'
+        ? activity.createdBy?.name?.toLowerCase().includes(query)
+        : activity.createdBy?.toLowerCase().includes(query))
     );
 
     if (!selectedCategory) return matchesSearch;
 
     const normalizedSelected = selectedCategory.toLowerCase();
-    const normalizedActivity = activity.category.toLowerCase();
+    const normalizedActivity = activity.category?.toLowerCase() || '';
 
     // Match categories like 'Events' to 'Event', 'Placements' to 'Placement', etc.
     const matchesCategory =
       normalizedActivity === normalizedSelected ||
       normalizedSelected.startsWith(normalizedActivity) ||
       normalizedActivity.startsWith(normalizedSelected) ||
+      (normalizedSelected === 'club activities' && normalizedActivity === 'club_activity') ||
       (normalizedSelected === 'club activities' && normalizedActivity === 'event');
 
     return matchesSearch && matchesCategory;
@@ -223,7 +263,12 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
         <div className="grid grid-cols-1 lg:grid-cols-10 gap-8">
           {/* Feed Column (70%) */}
           <div className="lg:col-span-7 space-y-4">
-            {filteredActivities.length === 0 ? (
+            {isLoading ? (
+              <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-500 shadow-xs flex flex-col items-center justify-center space-y-3">
+                <Loader2 className="w-8 h-8 animate-spin text-brand-accent" />
+                <p className="text-sm font-semibold text-slate-600">Loading activities...</p>
+              </div>
+            ) : filteredActivities.length === 0 ? (
               <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-slate-500 shadow-xs">
                 <div className="text-4xl mb-3">🔍</div>
                 <p className="font-bold text-sm text-slate-800">No activities found</p>
@@ -232,55 +277,63 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
                 </p>
               </div>
             ) : (
-              filteredActivities.map((activity) => (
-                <div 
-                  key={activity.id} 
-                  onClick={() => navigate(`/activity/${activity.id}`)}
-                  className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between cursor-pointer"
-                >
-                  {/* Top Row: Avatar & Coordinator */}
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className={`w-9 h-9 rounded-full ${getAvatarBgClass(activity.category)} flex items-center justify-center font-bold text-xs shrink-0 shadow-inner`}>
-                      {getInitials(activity.createdBy)}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-slate-800 leading-tight">
-                        {activity.createdBy}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                        {activity.createdAt}
-                      </div>
-                    </div>
-                  </div>
+              filteredActivities.map((activity) => {
+                const creatorName = activity.createdBy?.name || activity.createdBy || 'Coordinator';
+                const relativeTime = formatTimeAgo(activity.createdAt);
+                const cleanEventDate = activity.eventDate ? activity.eventDate.split('T')[0] : '';
+                const formattedEventDate = formatLongDate(cleanEventDate) || 'To Be Decided';
+                const venue = activity.venue || 'Online';
 
-                  {/* Body */}
-                  <div className="space-y-1.5 flex-1">
-                    <h3 className="font-extrabold text-slate-800 text-sm sm:text-base hover:text-brand-accent transition-colors leading-snug">
-                      {activity.title}
-                    </h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      {activity.description}
-                    </p>
-                  </div>
+                return (
+                  <div 
+                    key={activity._id || activity.id} 
+                    onClick={() => navigate(`/activity/${activity._id || activity.id}`)}
+                    className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between cursor-pointer"
+                  >
+                    {/* Top Row: Avatar & Coordinator */}
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className={`w-9 h-9 rounded-full ${getAvatarBgClass(activity.category)} flex items-center justify-center font-bold text-xs shrink-0 shadow-inner`}>
+                        {getInitials(creatorName)}
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800 leading-tight">
+                          {creatorName}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                          {relativeTime}
+                        </div>
+                      </div>
+                    </div>
 
-                  {/* Footer Row */}
-                  <div className="mt-4 pt-3.5 border-t border-slate-50/80 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-3.5 text-[10px] text-slate-400 font-semibold">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{activity.eventDate}</span>
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{activity.venue}</span>
+                    {/* Body */}
+                    <div className="space-y-1.5 flex-1">
+                      <h3 className="font-extrabold text-slate-800 text-sm sm:text-base hover:text-brand-accent transition-colors leading-snug">
+                        {activity.title}
+                      </h3>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {activity.description}
+                      </p>
+                    </div>
+
+                    {/* Footer Row */}
+                    <div className="mt-4 pt-3.5 border-t border-slate-50/80 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-3.5 text-[10px] text-slate-400 font-semibold">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{formattedEventDate}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>{venue}</span>
+                        </span>
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border ${getCategoryStyles(activity.category)}`}>
+                        {activity.category}
                       </span>
                     </div>
-                    <span className={`px-2.5 py-0.5 rounded-md text-[9px] font-extrabold uppercase tracking-wider border ${getCategoryStyles(activity.category)}`}>
-                      {activity.category}
-                    </span>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
