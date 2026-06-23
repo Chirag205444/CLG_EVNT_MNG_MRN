@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import Navbar from '../component/Navbar';
 import { 
@@ -86,6 +86,10 @@ const formatDate = (dateString) => {
 
 function ActivityForm({ user, onLogout }) {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = !!id;
+
+  const [isEditLoading, setIsEditLoading] = useState(false);
 
   // Controlled form state
   const [formData, setFormData] = useState({
@@ -103,6 +107,46 @@ function ActivityForm({ user, onLogout }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDraftLoading, setIsDraftLoading] = useState(false);
   const [cardStatus, setCardStatus] = useState('Draft'); // 'Draft' or 'Published'
+
+  // Fetch post details if in edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      const fetchPostData = async () => {
+        setIsEditLoading(true);
+        setError('');
+        try {
+          const response = await axios.get(
+            `${import.meta.env.VITE_BACKEND_URL}/api/posts/${id}`,
+            {
+              headers: {
+                Authorization: `Bearer ${user?.token}`
+              },
+              withCredentials: true
+            }
+          );
+          if (response.data && response.data.success) {
+            const post = response.data.data;
+            setFormData({
+              title: post.title || '',
+              category: post.category || '',
+              description: post.description || '',
+              venue: post.venue || '',
+              eventDate: post.eventDate ? post.eventDate.split('T')[0] : '',
+              registrationDeadline: post.registrationDeadline ? post.registrationDeadline.split('T')[0] : '',
+              maxParticipants: post.maxParticipants || ''
+            });
+            setCardStatus('Published');
+          }
+        } catch (err) {
+          console.error("Failed to fetch post data for edit:", err);
+          setError("Failed to load activity details. Please return and try again.");
+        } finally {
+          setIsEditLoading(false);
+        }
+      };
+      fetchPostData();
+    }
+  }, [id, isEditMode, user?.token]);
 
   // Restrict access for students (Student Role Check)
   const isCoordinator = user?.role === 'coordinator';
@@ -191,38 +235,60 @@ function ActivityForm({ user, onLogout }) {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(
-        `${import.meta.env.VITE_BACKEND_URL}/api/posts`,
-        {
-          title: formData.title,
-          description: formData.description,
-          category: formData.category,
-          venue: formData.venue || undefined,
-          eventDate: formData.eventDate || undefined,
-          maxParticipants: formData.maxParticipants || undefined,
-          registrationDeadline: formData.registrationDeadline || undefined
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${user?.token}`
+      let response;
+      if (isEditMode) {
+        response = await axios.put(
+          `${import.meta.env.VITE_BACKEND_URL}/api/posts/${id}`,
+          {
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            venue: formData.venue || undefined,
+            eventDate: formData.eventDate || undefined,
+            maxParticipants: formData.maxParticipants || undefined,
+            registrationDeadline: formData.registrationDeadline || undefined
           },
-          withCredentials: true
-        }
-      );
+          {
+            headers: {
+              Authorization: `Bearer ${user?.token}`
+            },
+            withCredentials: true
+          }
+        );
+      } else {
+        response = await axios.post(
+          `${import.meta.env.VITE_BACKEND_URL}/api/posts`,
+          {
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            venue: formData.venue || undefined,
+            eventDate: formData.eventDate || undefined,
+            maxParticipants: formData.maxParticipants || undefined,
+            registrationDeadline: formData.registrationDeadline || undefined
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${user?.token}`
+            },
+            withCredentials: true
+          }
+        );
+      }
 
       setIsLoading(false);
       setCardStatus('Published');
-      setSuccess('Activity Published Successfully');
+      setSuccess(isEditMode ? 'Activity Updated Successfully' : 'Activity Published Successfully');
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // Redirect to Dashboard home page
+      // Redirect
       setTimeout(() => {
-        navigate('/');
+        navigate(isEditMode ? '/my-events' : '/');
       }, 1800);
     } catch (err) {
       console.error('Publish Error:', err);
       setIsLoading(false);
-      const errorMsg = err.response?.data?.message || err.response?.data?.error || 'Failed to publish activity. Please try again.';
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || `Failed to ${isEditMode ? 'update' : 'publish'} activity. Please try again.`;
       setError(errorMsg);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -278,21 +344,23 @@ function ActivityForm({ user, onLogout }) {
         {/* Breadcrumb Back Button */}
         <div>
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(isEditMode ? '/my-events' : '/')}
             className="inline-flex items-center space-x-2 text-xs font-semibold text-slate-500 hover:text-brand-accent transition-colors cursor-pointer group"
           >
             <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-            <span>Back to Dashboard</span>
+            <span>{isEditMode ? 'Back to My Events' : 'Back to Dashboard'}</span>
           </button>
         </div>
 
         {/* Title and Subtitle */}
         <div className="space-y-1">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
-            Create Activity
+            {isEditMode ? 'Edit Activity' : 'Create Activity'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 max-w-2xl leading-relaxed">
-            Publish events, workshops, placements, announcements, and campus opportunities for students.
+            {isEditMode 
+              ? 'Update details, category, and access conditions for this activity.' 
+              : 'Publish events, workshops, placements, announcements, and campus opportunities for students.'}
           </p>
         </div>
 
@@ -301,7 +369,13 @@ function ActivityForm({ user, onLogout }) {
           
           {/* Left Column: Form Details (approx 58%) */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6">
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6 relative">
+              {isEditLoading && (
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-xs flex flex-col items-center justify-center rounded-2xl z-20">
+                  <Loader2 className="w-9 h-9 animate-spin text-brand-accent mb-2" />
+                  <p className="text-sm font-bold text-slate-500">Loading activity data...</p>
+                </div>
+              )}
               
               {/* Errors & Success Feedback banners */}
               {error && (
@@ -477,40 +551,42 @@ function ActivityForm({ user, onLogout }) {
 
                 {/* Submit Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    disabled={isDraftLoading || isLoading}
-                    onClick={handleSaveDraft}
-                    className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-xs sm:text-sm font-extrabold rounded-xl hover:bg-slate-50 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-                  >
-                    {isDraftLoading ? (
-                      <>
-                        <Loader2 className="w-4.5 h-4.5 animate-spin text-slate-400" />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Clock className="w-4.5 h-4.5 text-slate-400" />
-                        <span>Save Draft</span>
-                      </>
-                    )}
-                  </button>
+                  {!isEditMode && (
+                    <button
+                      type="button"
+                      disabled={isDraftLoading || isLoading}
+                      onClick={handleSaveDraft}
+                      className="flex-1 py-2.5 border border-slate-200 text-slate-600 text-xs sm:text-sm font-extrabold rounded-xl hover:bg-slate-50 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                    >
+                      {isDraftLoading ? (
+                        <>
+                          <Loader2 className="w-4.5 h-4.5 animate-spin text-slate-400" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-4.5 h-4.5 text-slate-400" />
+                          <span>Save Draft</span>
+                        </>
+                      )}
+                    </button>
+                  )}
 
                   <button
                     type="submit"
                     disabled={isLoading || isDraftLoading}
                     onClick={handlePublish}
-                    className="flex-[2] py-2.5 bg-brand-accent text-white text-xs sm:text-sm font-extrabold rounded-xl hover:bg-brand-accent/95 hover:shadow-md active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                    className={`py-2.5 bg-brand-accent text-white text-xs sm:text-sm font-extrabold rounded-xl hover:bg-brand-accent/95 hover:shadow-md active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm ${isEditMode ? 'w-full' : 'flex-[2]'}`}
                   >
                     {isLoading ? (
                       <>
                         <Loader2 className="w-4.5 h-4.5 animate-spin" />
-                        <span>Publishing...</span>
+                        <span>{isEditMode ? 'Updating...' : 'Publishing...'}</span>
                       </>
                     ) : (
                       <>
                         <Sparkles className="w-4.5 h-4.5" />
-                        <span>Publish Activity</span>
+                        <span>{isEditMode ? 'Update Activity' : 'Publish Activity'}</span>
                       </>
                     )}
                   </button>

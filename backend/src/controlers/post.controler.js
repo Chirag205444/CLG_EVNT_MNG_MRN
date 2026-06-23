@@ -291,10 +291,32 @@ const deletePost = async (req, res) => {
     }
 };
 
+// Get all posts created by the logged-in coordinator (Coordinators only)
+const getMyPosts = async (req, res) => {
+    try {
+        const posts = await postModel.find({ createdBy: req.user._id })
+            .populate('createdBy', 'name email')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        return res.status(200).json({
+            success: true,
+            data: posts
+        });
+    } catch (err) {
+        console.error("Error in getMyPosts:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
+
 module.exports = {
     createPost,
     getAllPosts,
     getPostById,
     updatePost,
-    deletePost
+    deletePost,
+    getMyPosts
 };

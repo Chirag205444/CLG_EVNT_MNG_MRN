@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Bot } from 'lucide-react';
 import { 
   FiBell, 
@@ -141,6 +142,28 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory, onCateg
 
         {/* Drawer Footer */}
         <div className="p-5 border-t border-slate-100 space-y-2">
+          {user?.role === 'coordinator' ? (
+            <Link 
+              to="/my-events"
+              onClick={() => setIsMobileDrawerOpen(false)}
+              className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <MdEvent className="w-4.5 h-4.5 text-slate-400" />
+              <span>My Events</span>
+            </Link>
+          ) : (
+            <button 
+              onClick={() => {
+                setIsMobileDrawerOpen(false);
+                alert('My Registrations functionality coming soon!');
+              }}
+              className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <MdEvent className="w-4.5 h-4.5 text-slate-400" />
+              <span>My Registrations</span>
+            </button>
+          )}
+
           <button 
             onClick={() => {
               setIsMobileDrawerOpen(false);
@@ -287,8 +310,33 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory, onCateg
                       </div>
                     </div>
 
+                    {user?.role === 'coordinator' ? (
+                      <Link
+                        to="/my-events"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left font-medium"
+                      >
+                        <MdEvent className="w-4 h-4 text-slate-400" />
+                        <span>My Events</span>
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setIsProfileOpen(false);
+                          alert('My Registrations functionality coming soon!');
+                        }}
+                        className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left font-medium"
+                      >
+                        <MdEvent className="w-4 h-4 text-slate-400" />
+                        <span>My Registrations</span>
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => alert('Profile page coming soon!')}
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        alert('Profile page coming soon!');
+                      }}
                       className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left font-medium"
                     >
                       <FiUser className="w-4 h-4 text-slate-400" />

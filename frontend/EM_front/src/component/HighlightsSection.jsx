@@ -26,7 +26,7 @@ function HighlightsSection() {
   const [activitiesData, setActivitiesData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [cardsToShow, setCardsToShow] = useState(3);
-  const [currentIndex, setCurrentIndex] = useState(0); 
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
 
   // Drag states
@@ -429,7 +429,7 @@ function HighlightsSection() {
                     }}
                   >
                     <div
-                      className={`border rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between flex-1 relative ${getCardBgClass(activity.id, isFeatured)} ${isFeatured
+                      className={`bg-white border border-orange-200 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between flex-1 relative ${getCardBgClass(activity.id, isFeatured)} ${isFeatured
                         ? 'ring-2 ring-amber-400/10 bg-gradient-to-b from-amber-500/[0.015] to-transparent'
                         : ''
                         }`}
@@ -508,7 +508,7 @@ function HighlightsSection() {
             // Find active dot index.
             // On mobile cardsToShow is 1, so indices are 3 to 3+L-1.
             // Map currentIndex to local index.
-            const isActive = activitiesData.length >= 3 
+            const isActive = activitiesData.length >= 3
               ? (currentIndex - 3 + activitiesData.length) % activitiesData.length === idx
               : currentIndex === idx;
             return (
