@@ -8,6 +8,7 @@ import ActivityForm from './pages/ActivityForm';
 import ActivityDetail from './pages/ActivityDetail';
 import CoMyEvents from './pages/Co-MyEvents';
 import RegistrationsPlaceholder from './pages/RegistrationsPlaceholder';
+import MyRegistrations from './pages/MyRegistrations';
 
 function ActivityDetailRoute() {
   const [user, setUser] = useState(() => {
@@ -222,6 +223,51 @@ function RegistrationsPlaceholderRoute() {
   return <Navigate to="/" replace />;
 }
 
+function MyRegistrationsRoute() {
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const stored = localStorage.getItem('user');
+        setUser(stored ? JSON.parse(stored) : null);
+      } catch {
+        setUser(null);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('auth-change', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('auth-change', handleStorage);
+    };
+  }, []);
+
+  if (user) {
+    if (user.role === 'student') {
+      return (
+        <MyRegistrations
+          user={user}
+          onLogout={() => {
+            localStorage.removeItem('user');
+            window.dispatchEvent(new Event('auth-change'));
+          }}
+        />
+      );
+    } else {
+      return <Navigate to="/" replace />;
+    }
+  }
+  return <Navigate to="/" replace />;
+}
+
 function App() {
   return (
     <Router>
@@ -247,6 +293,9 @@ function App() {
         <Route path="/my-events" element={<CoMyEventsRoute />} />
         <Route path="/my-events/edit/:id" element={<ActivityFormRoute />} />
         <Route path="/my-events/:id/registrations" element={<RegistrationsPlaceholderRoute />} />
+
+        {/* Student My Registrations Dashboard */}
+        <Route path="/my-registrations" element={<MyRegistrationsRoute />} />
         
         {/* Fallback for undefined routes redirecting to landing */}
         <Route path="*" element={<Navigate to="/" replace />} />

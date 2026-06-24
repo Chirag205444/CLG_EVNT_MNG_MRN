@@ -17,8 +17,10 @@ app.use(express.urlencoded({ extended: true }));
 
 const userRoutes = require('./routes/user.routes');
 const postRoutes = require('./routes/post.Routes');
+const registrationRoutes = require('./routes/registration.routes');
 
 app.use('/api/auth', userRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/registrations', registrationRoutes);
 
 module.exports = app;

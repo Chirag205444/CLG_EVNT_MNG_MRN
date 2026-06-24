@@ -152,16 +152,14 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory, onCateg
               <span>My Events</span>
             </Link>
           ) : (
-            <button 
-              onClick={() => {
-                setIsMobileDrawerOpen(false);
-                alert('My Registrations functionality coming soon!');
-              }}
+            <Link 
+              to="/my-registrations"
+              onClick={() => setIsMobileDrawerOpen(false)}
               className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
             >
               <MdEvent className="w-4.5 h-4.5 text-slate-400" />
               <span>My Registrations</span>
-            </button>
+            </Link>
           )}
 
           <button 
@@ -320,16 +318,14 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory, onCateg
                         <span>My Events</span>
                       </Link>
                     ) : (
-                      <button
-                        onClick={() => {
-                          setIsProfileOpen(false);
-                          alert('My Registrations functionality coming soon!');
-                        }}
+                      <Link
+                        to="/my-registrations"
+                        onClick={() => setIsProfileOpen(false)}
                         className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left font-medium"
                       >
                         <MdEvent className="w-4 h-4 text-slate-400" />
                         <span>My Registrations</span>
-                      </button>
+                      </Link>
                     )}
 
                     <button

@@ -177,10 +177,55 @@ function ActivityDetail({ user, onLogout }) {
 
     // State management for registration simulation
     const [isRegistered, setIsRegistered] = useState(false);
+    const [registrationId, setRegistrationId] = useState(null);
     const [seatsCount, setSeatsCount] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalSuccess, setModalSuccess] = useState(false);
     const [modalAction, setModalAction] = useState('register'); // 'register' or 'unregister'
+
+    // Form inputs and validation state
+    const [usn, setUsn] = useState('');
+    const [usnTouched, setUsnTouched] = useState(false);
+    const [usnError, setUsnError] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Custom toast state
+    const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
+    const showToast = (message, type = 'success') => {
+        setToast({ visible: true, message, type });
+        setTimeout(() => {
+            setToast({ visible: false, message: '', type });
+        }, 3000);
+    };
+
+    // Retrieve current user details from props or localStorage
+    const localUser = JSON.parse(localStorage.getItem('user') || 'null');
+    const currentUserName = user?.name || localUser?.name || '';
+    const currentUserEmail = user?.email || localUser?.email || '';
+
+    // Handle ESC key to close modal
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setIsModalOpen(false);
+            }
+        };
+        if (isModalOpen) {
+            window.addEventListener('keydown', handleKeyDown);
+        }
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isModalOpen]);
+
+    // Reset form state when modal closes
+    useEffect(() => {
+        if (!isModalOpen) {
+            setUsn('');
+            setUsnTouched(false);
+            setUsnError('');
+        }
+    }, [isModalOpen]);
 
     // Scroll to top on mount or when ID changes
     useEffect(() => {
@@ -213,14 +258,33 @@ function ActivityDetail({ user, onLogout }) {
                     
                     setActivity(mappedActivity);
 
-                    // Sync registration state with localStorage
+                    // Fetch real-time registration status and ID from backend
                     try {
-                        const registeredIds = JSON.parse(localStorage.getItem('registered_activities') || '[]');
-                        const hasRegistered = registeredIds.includes(mappedActivity.id);
-                        setIsRegistered(hasRegistered);
-                        setSeatsCount(mappedActivity.registeredSeats + (hasRegistered ? 1 : 0));
-                    } catch {
-                        setSeatsCount(mappedActivity.registeredSeats);
+                        const resStatus = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/registrations/status/${id}`, {
+                            headers,
+                            withCredentials: true
+                        });
+                        if (resStatus.data && resStatus.data.success) {
+                            setIsRegistered(resStatus.data.registered);
+                            setRegistrationId(resStatus.data.registrationId);
+                        }
+                    } catch (statusErr) {
+                        console.error("Error fetching registration status:", statusErr);
+                        setIsRegistered(false);
+                    }
+
+                    // Fetch real-time registration count from backend
+                    try {
+                        const resCount = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/registrations/count/${id}`, {
+                            headers,
+                            withCredentials: true
+                        });
+                        if (resCount.data && resCount.data.success) {
+                            setSeatsCount(resCount.data.count);
+                        }
+                    } catch (countErr) {
+                        console.error("Error fetching registration count:", countErr);
+                        setSeatsCount(actData.registeredSeats || 0);
                     }
 
                     // Fetch all activities for related section
@@ -337,36 +401,103 @@ function ActivityDetail({ user, onLogout }) {
     };
 
     // Handle confirm registration in modal
-    const handleConfirmRegistration = () => {
+    const handleConfirmRegistration = async () => {
+        if (!usn.trim() || isSubmitting) return;
+
+        setIsSubmitting(true);
+        setUsnError('');
+
         try {
-            const registeredIds = JSON.parse(localStorage.getItem('registered_activities') || '[]');
-            if (!registeredIds.includes(activity.id)) {
-                registeredIds.push(activity.id);
-                localStorage.setItem('registered_activities', JSON.stringify(registeredIds));
+            const userObj = JSON.parse(localStorage.getItem('user') || 'null');
+            const token = userObj?.token;
+
+            const response = await axios.post(
+                `${import.meta.env.VITE_BACKEND_URL}/api/registrations/${activity.id}`,
+                { usn: usn.trim() },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    withCredentials: true
+                }
+            );
+
+            if (response.data && response.data.success) {
+                setIsRegistered(true);
+                setRegistrationId(response.data.data._id);
+                setModalSuccess(true);
+                showToast("Successfully registered!");
+
+                // Refresh count immediately
+                try {
+                    const resCount = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/registrations/count/${activity.id}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                        withCredentials: true
+                    });
+                    if (resCount.data && resCount.data.success) {
+                        setSeatsCount(resCount.data.count);
+                    }
+                } catch (countErr) {
+                    console.error("Error updating count after registration:", countErr);
+                    setSeatsCount(prev => prev + 1);
+                }
             }
-            setIsRegistered(true);
-            setSeatsCount((prev) => prev + 1);
-            setModalSuccess(true);
-        } catch (e) {
-            console.error(e);
-            setIsRegistered(true);
-            setModalSuccess(true);
+        } catch (err) {
+            console.error("Registration error:", err);
+            const errorMsg = err.response?.data?.message || err.response?.data?.error || "Registration failed. Please try again.";
+            showToast(errorMsg, "error");
+            setUsnError(errorMsg);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     // Handle confirm unregistration in modal
-    const handleConfirmUnregistration = () => {
+    const handleConfirmUnregistration = async () => {
+        if (!registrationId || isSubmitting) return;
+
+        setIsSubmitting(true);
+
         try {
-            const registeredIds = JSON.parse(localStorage.getItem('registered_activities') || '[]');
-            const filtered = registeredIds.filter(id => id !== activity.id);
-            localStorage.setItem('registered_activities', JSON.stringify(filtered));
-            setIsRegistered(false);
-            setSeatsCount((prev) => Math.max(0, prev - 1));
-            setModalSuccess(true);
-        } catch (e) {
-            console.error(e);
-            setIsRegistered(false);
-            setModalSuccess(true);
+            const userObj = JSON.parse(localStorage.getItem('user') || 'null');
+            const token = userObj?.token;
+
+            const response = await axios.delete(
+                `${import.meta.env.VITE_BACKEND_URL}/api/registrations/${registrationId}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                    withCredentials: true
+                }
+            );
+
+            if (response.data && response.data.success) {
+                setIsRegistered(false);
+                setRegistrationId(null);
+                setModalSuccess(true);
+                showToast("Registration cancelled successfully!");
+
+                // Refresh count immediately
+                try {
+                    const resCount = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/registrations/count/${activity.id}`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                        withCredentials: true
+                    });
+                    if (resCount.data && resCount.data.success) {
+                        setSeatsCount(resCount.data.count);
+                    }
+                } catch (countErr) {
+                    console.error("Error updating count after cancellation:", countErr);
+                    setSeatsCount(prev => Math.max(0, prev - 1));
+                }
+            }
+        } catch (err) {
+            console.error("Unregistration error:", err);
+            const errorMsg = err.response?.data?.message || err.response?.data?.error || "Cancellation failed. Please try again.";
+            showToast(errorMsg, "error");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -808,27 +939,35 @@ function ActivityDetail({ user, onLogout }) {
 
                     {/* Backdrop Blur overlay */}
                     <div
-                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs animate-backdrop-in cursor-pointer"
-                        onClick={() => setIsModalOpen(false)}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-backdrop-in cursor-pointer"
+                        onClick={() => !isSubmitting && setIsModalOpen(false)}
                     />
 
                     {/* Modal Container */}
-                    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden relative z-10 animate-modal-in p-6 sm:p-7 space-y-6">
+                    <div className="bg-white w-full sm:max-w-xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden relative z-10 animate-modal-in p-6 sm:p-7 space-y-6">
 
                         {/* Header info / Success title */}
-                        <div className="flex items-center justify-between border-b border-slate-50 pb-3">
-                            <h3 className="font-extrabold text-slate-800 text-sm sm:text-base tracking-tight">
-                                {modalSuccess
-                                    ? (modalAction === 'register' ? 'Registration Confirmed' : 'Registration Cancelled')
-                                    : (modalAction === 'register' ? 'Register For Activity' : 'Cancel Registration')
-                                }
-                            </h3>
-                            <button
-                                onClick={() => setIsModalOpen(false)}
-                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all cursor-pointer"
-                            >
-                                <X className="w-4.5 h-4.5" />
-                            </button>
+                        <div className="border-b border-slate-50 pb-3">
+                            <div className="flex items-center justify-between">
+                                <h3 className="font-extrabold text-slate-800 text-sm sm:text-base tracking-tight">
+                                    {modalSuccess
+                                        ? (modalAction === 'register' ? 'Registration Confirmed' : 'Registration Cancelled')
+                                        : (modalAction === 'register' ? 'Register for Activity' : 'Cancel Registration')
+                                    }
+                                </h3>
+                                <button
+                                    onClick={() => !isSubmitting && setIsModalOpen(false)}
+                                    disabled={isSubmitting}
+                                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    <X className="w-4.5 h-4.5" />
+                                </button>
+                            </div>
+                            {(!modalSuccess && modalAction === 'register') && (
+                                <p className="text-xs text-slate-450 mt-1 font-semibold leading-normal">
+                                    Confirm your details before registering for this activity.
+                                </p>
+                            )}
                         </div>
 
                         {/* Modal Body */}
@@ -856,7 +995,7 @@ function ActivityDetail({ user, onLogout }) {
                                         </div>
 
                                         <div className="space-y-1">
-                                            <h4 className="text-base font-extrabold text-slate-850">✓ Registration Cancelled</h4>
+                                            <h4 className="text-base font-extrabold text-slate-855">✓ Registration Cancelled</h4>
                                             <p className="text-xs text-slate-450 max-w-[280px] mx-auto leading-normal font-semibold">
                                                 Your RSVP for this activity has been cancelled. Your seat is now free for others.
                                             </p>
@@ -864,61 +1003,110 @@ function ActivityDetail({ user, onLogout }) {
                                     </div>
                                 )
                             ) : (
-                                // Confirmation State View
+                                // Confirmation / Input View
                                 modalAction === 'register' ? (
                                     <div className="space-y-4">
+                                        {/* Error Alert Display */}
+                                        {usnError && (
+                                            <p className="text-xs text-rose-550 font-bold bg-rose-50 border border-rose-100 p-2.5 rounded-xl flex items-start gap-2 animate-slide-in">
+                                                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                                                <span>{usnError}</span>
+                                            </p>
+                                        )}
 
-                                        {/* Activity preview summary */}
-                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 text-xs">
+                                        {/* Prefilled Fields (Disabled) */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="space-y-1.5">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    Full Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={currentUserName}
+                                                    disabled
+                                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-505 rounded-xl text-xs font-semibold cursor-not-allowed select-none focus:outline-none"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                    Email Address
+                                                </label>
+                                                <input
+                                                    type="email"
+                                                    value={currentUserEmail}
+                                                    disabled
+                                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-505 rounded-xl text-xs font-semibold cursor-not-allowed select-none focus:outline-none"
+                                                />
+                                            </div>
+                                        </div>
 
+                                        {/* USN Input */}
+                                        <div className="space-y-1.5">
+                                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                                                <span>USN</span>
+                                                <span className="text-[9px] text-rose-505 lowercase normal-case font-bold">* required</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                placeholder="Enter your Registration Number"
+                                                value={usn}
+                                                disabled={isSubmitting}
+                                                onChange={(e) => {
+                                                    setUsn(e.target.value);
+                                                    setUsnTouched(true);
+                                                    setUsnError('');
+                                                }}
+                                                onBlur={() => setUsnTouched(true)}
+                                                className={`w-full px-4 py-2.5 border rounded-xl text-xs font-medium focus:outline-none focus:ring-2 transition-all ${
+                                                    isSubmitting ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed' : ''
+                                                } ${
+                                                    (!usn.trim() && usnTouched)
+                                                        ? 'border-rose-350 focus:ring-rose-500/20'
+                                                        : 'border-slate-200 focus:ring-brand-accent/20 focus:border-brand-accent'
+                                                }`}
+                                            />
+                                            {(!usn.trim() && usnTouched) && (
+                                                <p className="text-[11px] text-rose-500 font-semibold mt-1">
+                                                    USN is required to complete registration.
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Activity summary */}
+                                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 text-xs">
                                             <div>
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Activity Title</span>
                                                 <span className="font-extrabold text-slate-850 leading-snug">{activity.title}</span>
                                             </div>
-
                                             <div className="grid grid-cols-2 gap-4 pt-1.5 border-t border-slate-200/40">
                                                 <div>
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Date</span>
                                                     <span className="font-bold text-slate-700 flex items-center gap-1">
-                                                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                                        <Calendar className="w-3.5 h-3.5 text-slate-405" />
                                                         <span>{formatDate(activity.eventDate)}</span>
                                                     </span>
                                                 </div>
                                                 <div>
                                                     <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Venue</span>
                                                     <span className="font-bold text-slate-700 flex items-center gap-1">
-                                                        <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                                                        <MapPin className="w-3.5 h-3.5 text-slate-405" />
                                                         <span className="truncate max-w-[110px]">{activity.venue || 'Online'}</span>
                                                     </span>
                                                 </div>
                                             </div>
-
                                         </div>
-
-                                        {/* Confirmation text info */}
-                                        <div className="p-3 bg-brand-light/75 border border-brand-highlight/20 rounded-2xl flex items-start gap-2.5">
-                                            <ShieldCheck className="w-4.5 h-4.5 mt-0.5 shrink-0 text-brand-accent" />
-                                            <p className="text-[11px] text-slate-500 font-semibold leading-normal">
-                                                By confirming, you agree to attend this activity. Please note the venue and date. A reminder notification will be dispatched prior to the start.
-                                            </p>
-                                        </div>
-
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
-
                                         {/* Activity preview summary */}
                                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 text-xs">
-
                                             <div>
                                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">Activity Title</span>
                                                 <span className="font-extrabold text-slate-855 leading-snug">{activity.title}</span>
                                             </div>
-
                                             <p className="text-slate-500 font-semibold leading-normal pt-1.5 border-t border-slate-200/40">
                                                 This action will release your seat. If you wish to re-register later, you can do so as long as seats remain.
                                             </p>
-
                                         </div>
 
                                         {/* Confirmation text info */}
@@ -928,7 +1116,6 @@ function ActivityDetail({ user, onLogout }) {
                                                 Are you sure you want to cancel your registration for this activity?
                                             </p>
                                         </div>
-
                                     </div>
                                 )
                             )}
@@ -949,30 +1136,46 @@ function ActivityDetail({ user, onLogout }) {
                                     <>
                                         <button
                                             onClick={() => setIsModalOpen(false)}
-                                            className="flex-1 py-2.5 border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98"
+                                            disabled={isSubmitting}
+                                            className="flex-1 py-2.5 border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <span>Cancel</span>
                                         </button>
                                         <button
                                             onClick={handleConfirmRegistration}
-                                            className="flex-1 py-2.5 bg-brand-accent hover:bg-brand-accent/95 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm active:scale-98"
+                                            disabled={!usn.trim() || isSubmitting}
+                                            className={`flex-1 py-2.5 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1 shadow-sm ${
+                                                (!usn.trim() || isSubmitting)
+                                                    ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed'
+                                                    : 'bg-brand-accent hover:bg-brand-accent/95 cursor-pointer active:scale-98'
+                                            }`}
                                         >
-                                            <span>Confirm Registration</span>
+                                            {isSubmitting ? (
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-slate-400" />
+                                            ) : (
+                                                <span>Confirm Registration</span>
+                                            )}
                                         </button>
                                     </>
                                 ) : (
                                     <>
                                         <button
                                             onClick={() => setIsModalOpen(false)}
-                                            className="flex-1 py-2.5 border border-slate-200 text-slate-550 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98"
+                                            disabled={isSubmitting}
+                                            className="flex-1 py-2.5 border border-slate-200 text-slate-555 hover:bg-slate-50 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <span>Keep RSVP</span>
                                         </button>
                                         <button
                                             onClick={handleConfirmUnregistration}
-                                            className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm active:scale-98"
+                                            disabled={isSubmitting}
+                                            className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
-                                            <span>Cancel Registration</span>
+                                            {isSubmitting ? (
+                                                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                                            ) : (
+                                                <span>Cancel Registration</span>
+                                            )}
                                         </button>
                                     </>
                                 )
@@ -980,6 +1183,14 @@ function ActivityDetail({ user, onLogout }) {
                         </div>
 
                     </div>
+                </div>
+            )}
+
+            {/* Custom absolute bottom-right toast notification */}
+            {toast.visible && (
+                <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl bg-slate-900 text-white shadow-2xl border border-slate-800 animate-slide-in text-xs font-bold">
+                    <span className={`w-2 h-2 rounded-full ${toast.type === 'error' ? 'bg-rose-500' : 'bg-emerald-400'} animate-ping`}></span>
+                    <span>{toast.message}</span>
                 </div>
             )}
         </div>
