@@ -1,4 +1,5 @@
 const userModel = require('../models/user.model');
+const registrationModel = require('../models/registration.model');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -121,4 +122,53 @@ const logoutUser = (req, res) => {
     return res.status(200).json({ message: "User logged out successfully" });
 };
 
-module.exports = { registerUser, loginUser, logoutUser };
+const updateProfile = async (req, res) => {
+    try {
+        const name = req.body.name ? req.body.name.trim() : "";
+        if (!name) {
+            return res.status(400).json({ error: "Name is required" });
+        }
+
+        const user = await userModel.findById(req.user._id);
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        user.name = name;
+        await user.save();
+
+        const token = req.cookies.EVNT_token || 
+            (req.headers.authorization && req.headers.authorization.startsWith('Bearer ') 
+                ? req.headers.authorization.split(' ')[1] 
+                : null);
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            user: { id: user._id, name: user.name, email: user.email, role: user.role, token }
+        });
+    } catch (err) {
+        console.error("Error in updateProfile:", err);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+const deleteAccount = async (req, res) => {
+    try {
+        await userModel.findByIdAndDelete(req.user._id);
+        // Cascade delete registrations for this student
+        await registrationModel.deleteMany({ student: req.user._id });
+
+        const clearCookieOptions = {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax'
+        };
+        res.clearCookie("EVNT_token", clearCookieOptions);
+        return res.status(200).json({ message: "Account deleted successfully" });
+    } catch (err) {
+        console.error("Error in deleteAccount:", err);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+module.exports = { registerUser, loginUser, logoutUser, updateProfile, deleteAccount };

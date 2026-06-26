@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const registrationModel = require('../models/registration.model');
 const postModel = require('../models/post.model');
+const { Parser } = require('json2csv');
 
 // 1. Register For Activity
 const registerForActivity = async (req, res) => {
@@ -376,6 +377,127 @@ const getRegistrationCount = async (req, res) => {
     }
 };
 
+// 8. Export Registrations as CSV
+const exportRegistrationsCSV = async (req, res) => {
+    try {
+        const { postId } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(postId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid activity ID format"
+            });
+        }
+
+        // 1. Fetch the Post using postId
+        const post = await postModel.findById(postId).lean();
+        // 2. If event does not exist: Return 404
+        if (!post) {
+            return res.status(404).json({
+                success: false,
+                message: "Activity not found"
+            });
+        }
+
+        // 3. Verify: post.createdBy === req.user._id
+        if (post.createdBy.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: "Unauthorized"
+            });
+        }
+
+        // Retrieve all registrations belonging to the event, sorted by registeredAt (oldest to newest)
+        const registrations = await registrationModel.find({ post: postId })
+            .sort({ registeredAt: 1 })
+            .lean();
+
+        // Date formatting helpers
+        const formatEventDate = (date) => {
+            if (!date) return "To Be Decided";
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return String(date);
+            const day = d.getDate();
+            const months = [
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+            ];
+            const month = months[d.getMonth()];
+            const year = d.getFullYear();
+            return `${day} ${month} ${year}`;
+        };
+
+        const formatDDMMYYYY = (date) => {
+            if (!date) return "";
+            const d = new Date(date);
+            if (isNaN(d.getTime())) return "";
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        };
+
+        const escapeCSVCell = (val) => {
+            if (val === null || val === undefined) return '';
+            let str = String(val);
+            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+                str = '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
+        };
+
+        // Construct CSV metadata block
+        const eventNameRow = `Event Name,${escapeCSVCell(post.title)}`;
+        const venueRow = `Venue,${escapeCSVCell(post.venue || 'N/A')}`;
+        const eventDateRow = `Event Date,${escapeCSVCell(formatEventDate(post.eventDate))}`;
+        const totalRegRow = `Total Registrations,${registrations.length}`;
+        const metadataHeader = [eventNameRow, venueRow, eventDateRow, totalRegRow].join('\n');
+
+        // Construct student registrations rows
+        const formattedRegs = registrations.map(reg => ({
+            'Student Name': reg.studentName || '',
+            'Email': reg.studentEmail || '',
+            'USN': reg.usn || '',
+            'Registered At': reg.registeredAt ? formatDDMMYYYY(reg.registeredAt) : ''
+        }));
+
+        const fields = ['Student Name', 'Email', 'USN', 'Registered At'];
+        const opts = { fields, header: true };
+        
+        let csvBody = '';
+        try {
+            const parser = new Parser(opts);
+            csvBody = parser.parse(formattedRegs);
+        } catch (parserErr) {
+            console.error("Parser error, falling back to manual escaping:", parserErr);
+            const headerRow = fields.map(escapeCSVCell).join(',');
+            const dataRows = formattedRegs.map(row => 
+                fields.map(field => escapeCSVCell(row[field])).join(',')
+            ).join('\n');
+            csvBody = `${headerRow}\n${dataRows}`;
+        }
+
+        const fullCSV = `${metadataHeader}\n\n${csvBody}`;
+
+        // Generate filename dynamically: replace spaces with underscores
+        const filename = `${post.title.replace(/\s+/g, '_')}_registrations.csv`;
+
+        // Set response headers
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename.replace(/"/g, '')}"`);
+
+        return res.status(200).send(fullCSV);
+
+    } catch (err) {
+        console.error("Error in exportRegistrationsCSV:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
+
 module.exports = {
     registerForActivity,
     getMyRegistrations,
@@ -383,5 +505,6 @@ module.exports = {
     updateRegistration,
     deleteRegistration,
     getRegistrationStatus,
-    getRegistrationCount
+    getRegistrationCount,
+    exportRegistrationsCSV
 };

@@ -8,7 +8,8 @@ const {
     updateRegistration,
     deleteRegistration,
     getRegistrationStatus,
-    getRegistrationCount
+    getRegistrationCount,
+    exportRegistrationsCSV
 } = require('../controlers/registration.controler');
 
 const authMiddleware = require('../middlewares/auth.middleware');
@@ -25,7 +26,10 @@ router.get('/status/:postId', authMiddleware, getRegistrationStatus);
 // 3. Get registration count and remaining seats for a specific activity (accessible to logged-in users)
 router.get('/count/:postId', authMiddleware, getRegistrationCount);
 
-// 4. Get registrations for a specific activity (accessible to logged-in coordinator who created the activity)
+// 4. Export registrations as CSV (accessible to coordinator who created the activity)
+router.get('/post/:postId/export', authMiddleware, coordinatorMiddleware, exportRegistrationsCSV);
+
+// 5. Get registrations for a specific activity (accessible to logged-in coordinator who created the activity)
 router.get('/post/:postId', authMiddleware, coordinatorMiddleware, getRegistrationsForActivity);
 
 // 5. Register for a specific activity (accessible to logged-in student)

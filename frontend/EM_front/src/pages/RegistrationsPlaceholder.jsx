@@ -50,6 +50,7 @@ function RegistrationsPlaceholder({ user, onLogout }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState({ visible: false, message: '', type: 'success' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, regId: null, studentName: '' });
+  const [isExporting, setIsExporting] = useState(false);
 
   const showToast = (message, type = 'success') => {
     setToast({ visible: true, message, type });
@@ -127,6 +128,80 @@ function RegistrationsPlaceholder({ user, onLogout }) {
       showToast(errorMsg, "error");
     } finally {
       setDeleteModal({ isOpen: false, regId: null, studentName: '' });
+    }
+  };
+
+  const handleExportCSV = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+      const token = user?.token || storedUser?.token;
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/registrations/post/${id}/export`,
+        {
+          headers,
+          withCredentials: true,
+          responseType: 'blob'
+        }
+      );
+
+      // Handle server-side errors returned as JSON in a blob
+      if (response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const errorJson = JSON.parse(text);
+        throw new Error(errorJson.message || "Unable to export registrations.");
+      }
+
+      const blob = new Blob([response.data], { type: 'text/csv;charset=utf-8;' });
+      
+      // Determine filename from header or fallback to post title
+      const disposition = response.headers['content-disposition'];
+      let filename = `${post?.title?.replace(/\s+/g, '_') || 'event'}_registrations.csv`;
+      if (disposition && disposition.includes('filename=')) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(disposition);
+        if (matches != null && matches[1]) {
+          filename = matches[1].replace(/['"]/g, '');
+        }
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      showToast("CSV downloaded successfully!");
+    } catch (err) {
+      console.error("Error exporting CSV:", err);
+      let errorMsg = "Unable to export registrations.";
+      
+      if (err.response && err.response.data) {
+        if (err.response.data instanceof Blob) {
+          try {
+            const text = await err.response.data.text();
+            const errorJson = JSON.parse(text);
+            errorMsg = errorJson.message || errorMsg;
+          } catch (e) {
+            errorMsg = err.response.statusText || errorMsg;
+          }
+        } else {
+          errorMsg = err.response.data.message || errorMsg;
+        }
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      
+      showToast(errorMsg, "error");
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -212,15 +287,20 @@ function RegistrationsPlaceholder({ user, onLogout }) {
                 </p>
               </div>
 
-              {/* Action Buttons: Export CSV (UI Only Placeholder) */}
+              {/* Action Buttons: Export CSV */}
               <div className="shrink-0">
                 <button
-                  onClick={() => showToast("Export CSV functionality coming soon!", "info")}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:border-slate-300 bg-white text-slate-600 hover:text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer hover:shadow-sm"
-                  title="CSV Export is currently disabled"
+                  onClick={handleExportCSV}
+                  disabled={isLoading || isExporting}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:border-slate-300 bg-white text-slate-600 hover:text-slate-800 text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={isExporting ? "Exporting CSV..." : "Export registrations as CSV"}
                 >
-                  <Download className="w-4 h-4" />
-                  <span>Export CSV</span>
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  <span>{isExporting ? "Exporting..." : "Export CSV"}</span>
                 </button>
               </div>
             </div>

@@ -162,16 +162,14 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory, onCateg
             </Link>
           )}
 
-          <button 
-            onClick={() => {
-              setIsMobileDrawerOpen(false);
-              alert('Profile page coming soon!');
-            }}
+          <Link 
+            to="/profile"
+            onClick={() => setIsMobileDrawerOpen(false)}
             className="w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
           >
             <FiUser className="w-4.5 h-4.5 text-slate-400" />
             <span>My Profile</span>
-          </button>
+          </Link>
           
           <button 
             onClick={() => {
@@ -328,16 +326,14 @@ function Navbar({ user, onLogout, selectedCategory, setSelectedCategory, onCateg
                       </Link>
                     )}
 
-                    <button
-                      onClick={() => {
-                        setIsProfileOpen(false);
-                        alert('Profile page coming soon!');
-                      }}
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsProfileOpen(false)}
                       className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors text-left font-medium"
                     >
-                      <FiUser className="w-4 h-4 text-slate-400" />
+                      <FiUser className="w-4.5 h-4.5 text-slate-400" />
                       <span>My Profile</span>
-                    </button>
+                    </Link>
 
                     <hr className="my-1.5 border-slate-100" />
 

@@ -9,6 +9,7 @@ import ActivityDetail from './pages/ActivityDetail';
 import CoMyEvents from './pages/Co-MyEvents';
 import RegistrationsPlaceholder from './pages/RegistrationsPlaceholder';
 import MyRegistrations from './pages/MyRegistrations';
+import Profile from './pages/Profile';
 
 function ActivityDetailRoute() {
   const [user, setUser] = useState(() => {
@@ -268,6 +269,47 @@ function MyRegistrationsRoute() {
   return <Navigate to="/" replace />;
 }
 
+function ProfileRoute() {
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const stored = localStorage.getItem('user');
+        setUser(stored ? JSON.parse(stored) : null);
+      } catch {
+        setUser(null);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    window.addEventListener('auth-change', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('auth-change', handleStorage);
+    };
+  }, []);
+
+  if (user) {
+    return (
+      <Profile
+        user={user}
+        onLogout={() => {
+          localStorage.removeItem('user');
+          window.dispatchEvent(new Event('auth-change'));
+        }}
+      />
+    );
+  }
+  return <Navigate to="/" replace />;
+}
+
 function App() {
   return (
     <Router>
@@ -296,6 +338,9 @@ function App() {
 
         {/* Student My Registrations Dashboard */}
         <Route path="/my-registrations" element={<MyRegistrationsRoute />} />
+
+        {/* Profile Page Route */}
+        <Route path="/profile" element={<ProfileRoute />} />
         
         {/* Fallback for undefined routes redirecting to landing */}
         <Route path="*" element={<Navigate to="/" replace />} />
