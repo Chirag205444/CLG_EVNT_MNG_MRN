@@ -73,7 +73,7 @@ const categoryConfigs = {
         pillBorder: 'border-purple-100',
         accentRing: 'focus:ring-purple-500/20',
         glowColor: 'bg-purple-400/20',
-        avatarBg: 'bg-purple-100 text-purple-750',
+        avatarBg: 'bg-purple-100 text-purple-700',
     },
     placement: {
         label: 'PLACEMENT',
@@ -85,55 +85,55 @@ const categoryConfigs = {
         pillBorder: 'border-emerald-100',
         accentRing: 'focus:ring-emerald-500/20',
         glowColor: 'bg-emerald-400/20',
-        avatarBg: 'bg-emerald-100 text-emerald-750',
+        avatarBg: 'bg-emerald-100 text-emerald-700',
     },
     hackathon: {
         label: 'HACKATHON',
         themeColor: 'orange',
-        gradient: 'from-orange-500 to-rose-550',
+        gradient: 'from-orange-500 to-rose-600',
         badgeClass: 'bg-orange-50 text-orange-700 border-orange-100',
         accentText: 'text-orange-700',
         accentBg: 'bg-orange-50',
         pillBorder: 'border-orange-100',
         accentRing: 'focus:ring-orange-500/20',
         glowColor: 'bg-orange-400/20',
-        avatarBg: 'bg-orange-100 text-orange-755',
+        avatarBg: 'bg-orange-100 text-orange-700',
     },
     announcement: {
         label: 'ANNOUNCEMENT',
         themeColor: 'blue',
-        gradient: 'from-blue-600 to-indigo-650',
+        gradient: 'from-blue-600 to-indigo-700',
         badgeClass: 'bg-blue-50 text-blue-700 border-blue-100',
         accentText: 'text-blue-700',
         accentBg: 'bg-blue-50',
         pillBorder: 'border-blue-100',
         accentRing: 'focus:ring-blue-500/20',
         glowColor: 'bg-blue-400/20',
-        avatarBg: 'bg-blue-100 text-blue-755',
+        avatarBg: 'bg-blue-100 text-blue-700',
     },
     club_activity: {
         label: 'CLUB ACTIVITY',
         themeColor: 'pink',
-        gradient: 'from-pink-550 to-violet-650',
+        gradient: 'from-pink-500 to-violet-600',
         badgeClass: 'bg-rose-50 text-rose-700 border-rose-100',
         accentText: 'text-rose-700',
         accentBg: 'bg-rose-50',
         pillBorder: 'border-rose-100',
         accentRing: 'focus:ring-pink-500/20',
         glowColor: 'bg-pink-400/20',
-        avatarBg: 'bg-rose-100 text-rose-750',
+        avatarBg: 'bg-rose-100 text-rose-700',
     },
     event: {
         label: 'EVENT',
         themeColor: 'amber',
         gradient: 'from-amber-500 to-rose-500',
         badgeClass: 'bg-amber-50 text-amber-700 border-amber-100',
-        accentText: 'text-amber-705',
+        accentText: 'text-amber-700',
         accentBg: 'bg-amber-50',
         pillBorder: 'border-amber-100',
         accentRing: 'focus:ring-amber-500/20',
         glowColor: 'bg-amber-400/20',
-        avatarBg: 'bg-amber-100 text-amber-755',
+        avatarBg: 'bg-amber-100 text-amber-700',
     },
     default: {
         label: 'OTHER',
@@ -294,7 +294,8 @@ function ActivityDetail({ user, onLogout }) {
                     });
                     
                     if (resAll.data && resAll.data.success) {
-                        const allActs = resAll.data.data;
+                        const rawData = resAll.data.data;
+                        const allActs = Array.isArray(rawData) ? rawData : (rawData?.posts || []);
                         const related = allActs
                             .filter((act) => act._id !== mappedActivity.id)
                             .sort((a, b) => {
@@ -518,13 +519,13 @@ function ActivityDetail({ user, onLogout }) {
             case 'placement':
                 return 'bg-emerald-50 text-emerald-750 border-emerald-100';
             case 'hackathon':
-                return 'bg-indigo-50 text-indigo-755 border-indigo-100';
+                return 'bg-indigo-50 text-indigo-700 border-indigo-100';
             case 'event':
-                return 'bg-blue-50 text-blue-755 border-blue-100';
+                return 'bg-blue-50 text-blue-700 border-blue-100';
             case 'announcement':
-                return 'bg-amber-50 text-amber-755 border-amber-100';
+                return 'bg-amber-50 text-amber-700 border-amber-100';
             default:
-                return 'bg-rose-50 text-rose-755 border-rose-100';
+                return 'bg-rose-50 text-rose-700 border-rose-100';
         }
     };
 
@@ -721,12 +722,12 @@ function ActivityDetail({ user, onLogout }) {
                                     </h3>
                                     <div className="text-[10px] sm:text-xs text-slate-400 font-semibold space-y-1">
                                         <p className="flex items-center gap-1.5">
-                                            <User className="w-3.5 h-3.5 text-slate-450 shrink-0" />
-                                            <span>Posted by: <span className="text-slate-650 font-bold">{activity.createdBy}</span></span>
+                                            <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span>Posted by: <span className="text-slate-600 font-bold">{activity.createdBy}</span></span>
                                         </p>
                                         <p className="flex items-center gap-1.5">
-                                            <Clock className="w-3.5 h-3.5 text-slate-450 shrink-0" />
-                                            <span>Published: <span className="text-slate-650 font-bold">{activity.createdAt ? formatDate(activity.createdAt) : 'June 15, 2026'}</span></span>
+                                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                            <span>Published: <span className="text-slate-600 font-bold">{activity.createdAt ? formatDate(activity.createdAt) : 'June 15, 2026'}</span></span>
                                         </p>
                                     </div>
 
@@ -748,8 +749,8 @@ function ActivityDetail({ user, onLogout }) {
                             <h3 className="font-extrabold text-slate-800 text-sm sm:text-base tracking-tight border-b border-slate-50 pb-3 flex items-center justify-between">
                                 <span>Registration</span>
                                 <span className="flex items-center gap-1">
-                                    <span className={`w-1.5 h-1.5 rounded-full ${isDeadlinePassed ? 'bg-rose-500' : 'bg-emerald-550'} animate-pulse`}></span>
-                                    <span className="text-[9px] text-slate-450 font-bold uppercase tracking-wider">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isDeadlinePassed ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`}></span>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">
                                         {isDeadlinePassed ? 'Closed' : 'Active'}
                                     </span>
                                 </span>
@@ -760,10 +761,10 @@ function ActivityDetail({ user, onLogout }) {
 
                                 {/* Seats remaining */}
                                 <div className="flex items-center justify-between text-slate-600">
-                                    <span className="font-semibold text-slate-450">Seats Remaining:</span>
+                                    <span className="font-semibold text-slate-400">Seats Remaining:</span>
                                     <span className="font-bold text-slate-800 text-sm">
                                         {activity.maxParticipants ? (
-                                            <span className={activity.maxParticipants - seatsCount <= 10 ? 'text-rose-650' : 'text-slate-800'}>
+                                            <span className={activity.maxParticipants - seatsCount <= 10 ? 'text-rose-600' : 'text-slate-800'}>
                                                 {activity.maxParticipants - seatsCount} Seats
                                             </span>
                                         ) : (
@@ -1008,7 +1009,7 @@ function ActivityDetail({ user, onLogout }) {
                                     <div className="space-y-4">
                                         {/* Error Alert Display */}
                                         {usnError && (
-                                            <p className="text-xs text-rose-550 font-bold bg-rose-50 border border-rose-100 p-2.5 rounded-xl flex items-start gap-2 animate-slide-in">
+                                            <p className="text-xs text-rose-600 font-bold bg-rose-50 border border-rose-100 p-2.5 rounded-xl flex items-start gap-2 animate-slide-in">
                                                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                                                 <span>{usnError}</span>
                                             </p>
@@ -1112,7 +1113,7 @@ function ActivityDetail({ user, onLogout }) {
                                         {/* Confirmation text info */}
                                         <div className="p-3 bg-rose-50 border border-rose-100/50 rounded-2xl flex items-start gap-2.5">
                                             <AlertCircle className="w-4.5 h-4.5 mt-0.5 shrink-0 text-rose-500" />
-                                            <p className="text-[11px] text-rose-750 font-semibold leading-normal">
+                                            <p className="text-[11px] text-rose-700 font-semibold leading-normal">
                                                 Are you sure you want to cancel your registration for this activity?
                                             </p>
                                         </div>

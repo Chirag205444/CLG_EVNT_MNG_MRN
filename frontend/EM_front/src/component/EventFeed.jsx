@@ -82,6 +82,86 @@ const getInitials = (name) => {
   return name.slice(0, 2).toUpperCase();
 };
 
+const SkeletonCard = () => (
+  <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs flex flex-col justify-between animate-pulse">
+    {/* Top Row: Avatar & Coordinator */}
+    <div className="flex items-center space-x-3 mb-4">
+      <div className="w-9 h-9 rounded-full bg-slate-200 shrink-0"></div>
+      <div className="space-y-2 flex-1">
+        <div className="h-3.5 bg-slate-200 rounded-md w-1/3"></div>
+        <div className="h-2.5 bg-slate-200 rounded-md w-1/4"></div>
+      </div>
+    </div>
+
+    {/* Body */}
+    <div className="space-y-2 flex-1">
+      <div className="h-4 bg-slate-200 rounded-md w-3/4"></div>
+      <div className="h-3 bg-slate-200 rounded-md w-full"></div>
+      <div className="h-3 bg-slate-200 rounded-md w-5/6"></div>
+    </div>
+
+    {/* Footer Row */}
+    <div className="mt-5 pt-3.5 border-t border-slate-50/80 flex items-center justify-between">
+      <div className="flex items-center space-x-4 w-1/2">
+        <div className="h-3 bg-slate-200 rounded-md w-1/3"></div>
+        <div className="h-3 bg-slate-200 rounded-md w-1/3"></div>
+      </div>
+      <div className="h-4 bg-slate-200 rounded-md w-16"></div>
+    </div>
+  </div>
+);
+
+const SUGGESTED_QUESTIONS = [
+  { label: '📅 Events Today', text: 'What events are happening today?' },
+  { label: '🎓 Upcoming Workshops', text: 'Upcoming workshops' },
+  { label: '💼 Placement Drives', text: 'Placement drives this week' },
+  { label: '🏆 Upcoming Hackathons', text: 'Upcoming hackathons' },
+  { label: '📢 Latest Announcements', text: 'Latest announcements' },
+  { label: '📝 My Registrations', text: 'Show my registrations' },
+  { label: '🏢 IEEE Student Chapter', text: 'Events by IEEE Student Chapter' },
+  { label: '⏳ Deadlines', text: 'Registration deadlines this week' }
+];
+
+const parseMarkdown = (text) => {
+  if (!text) return '';
+  
+  // Escape HTML to prevent XSS
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Bold: **text**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+  // Bullet points: lines starting with '* ' or '- '
+  const lines = html.split('\n');
+  let inList = false;
+  const processedLines = lines.map(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('* ') || trimmed.startsWith('- ')) {
+      const content = trimmed.substring(2);
+      if (!inList) {
+        inList = true;
+        return `<ul class="list-disc pl-5 space-y-1 my-1"><li>${content}</li>`;
+      }
+      return `<li>${content}</li>`;
+    } else {
+      if (inList) {
+        inList = false;
+        return `</ul>${line}<br />`;
+      }
+      return line + '<br />';
+    }
+  });
+  
+  if (inList) {
+    processedLines.push('</ul>');
+  }
+  
+  return processedLines.join('');
+};
+
 const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
   const navigate = useNavigate();
   const [activities, setActivities] = useState([]);
@@ -100,30 +180,99 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
 
   const messagesEndRef = useRef(null);
 
-  useEffect(() => {
-    const fetchActivities = async () => {
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || 'null');
-        const token = user?.token;
-        const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/posts`, {
+  // Pagination & Infinite Scroll States
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [isError, setIsError] = useState(false);
+  const loaderRef = useRef(null);
+
+  const fetchFeed = async (pageNumber, isInitial = false) => {
+    if (isInitial) {
+      setIsLoading(true);
+    } else {
+      setIsFetchingMore(true);
+    }
+    setIsError(false);
+
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      const token = user?.token;
+      const response = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/posts?page=${pageNumber}&limit=10`,
+        {
           headers: {
             Authorization: `Bearer ${token}`
           },
           withCredentials: true
+        }
+      );
+
+      if (response.data && response.data.success) {
+        const rawData = response.data.data;
+        const posts = Array.isArray(rawData) ? rawData : (rawData?.posts || []);
+        const backendHasMore = Array.isArray(rawData) ? false : (rawData?.hasMore ?? false);
+
+        setActivities((prev) => {
+          if (isInitial) {
+            return posts;
+          } else {
+            const existingIds = new Set(prev.map((p) => p._id || p.id));
+            const newPosts = posts.filter((p) => !existingIds.has(p._id || p.id));
+            return [...prev, ...newPosts];
+          }
         });
 
-        if (response.data && response.data.success) {
-          setActivities(response.data.data);
+        setPage(pageNumber);
+        setHasMore(backendHasMore);
+      } else {
+        setIsError(true);
+      }
+    } catch (err) {
+      console.error('Fetch Feed Error:', err);
+      setIsError(true);
+    } finally {
+      setIsLoading(false);
+      setIsFetchingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchFeed(1, true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasMore || isFetchingMore || isLoading || isError) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting) {
+          fetchFeed(page + 1, false);
         }
-      } catch (err) {
-        console.error('Fetch Feed Error:', err);
-      } finally {
-        setIsLoading(false);
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentLoader = loaderRef.current;
+    if (currentLoader) {
+      observer.observe(currentLoader);
+    }
+
+    return () => {
+      if (currentLoader) {
+        observer.unobserve(currentLoader);
       }
     };
+  }, [hasMore, isFetchingMore, isLoading, isError, page]);
 
-    fetchActivities();
-  }, []);
+  const handleRetry = () => {
+    if (activities.length === 0) {
+      fetchFeed(1, true);
+    } else {
+      fetchFeed(page + 1, false);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -161,40 +310,63 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
     };
   }, []);
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!chatInput.trim() || isAiTyping) return;
+  const submitQuery = async (questionText) => {
+    if (!questionText.trim() || isAiTyping) return;
 
-    const userMessage = chatInput.trim();
+    const userMessage = questionText.trim();
     setChatMessages((prev) => [...prev, { sender: 'user', text: userMessage }]);
     setChatInput('');
     setIsAiTyping(true);
 
-    setTimeout(() => {
-      let responseText = '';
-      const query = userMessage.toLowerCase();
+    try {
+      const userObj = JSON.parse(localStorage.getItem('user') || 'null');
+      const token = userObj?.token;
+      const response = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/posts/chat`,
+        { question: userMessage },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          withCredentials: true
+        }
+      );
 
-      if (query.includes('hackathon') || query.includes('codequest') || query.includes('submission')) {
-        responseText = 'The Campus CodeQuest Hackathon submissions have been extended to June 20th. Make sure to upload your GitHub repository and demo video before the deadline!';
-      } else if (query.includes('workshop') || query.includes('ai') || query.includes('ml') || query.includes('pytorch')) {
-        responseText = 'We have an AI & Machine Learning Workshop scheduled for June 25th in Seminar Hall B. Also, don\'t miss the React Architecture Masterclass on June 30th!';
-      } else if (query.includes('placement') || query.includes('job') || query.includes('drive') || query.includes('google')) {
-        responseText = 'Google Offcampus Drive 2026 is scheduled for June 28th at the Placement Cell Wing A. Ensure your profile and resume are fully updated!';
-      } else if (query.includes('event') || query.includes('tedx') || query.includes('speaking')) {
-        responseText = 'TEDx Campus Speaking Auditions are open! Auditions will take place on July 5th at the Open Air Theatre (OAT). Prepare a 3-minute pitch.';
-      } else if (query.includes('club') || query.includes('society') || query.includes('ieee') || query.includes('acm')) {
-        responseText = 'Active clubs like Dev Club, WebDev Society, and IEEE Chapter are hosting multiple events. Check their specific notice boards or ask me for details!';
-      } else if (query.includes('deadline') || query.includes('date') || query.includes('when')) {
-        responseText = 'Key upcoming deadlines:\n- June 20: Hackathon submissions\n- June 25: AI & ML Workshop RSVP\n- June 28: Google Placement Drive\n- July 02: CodeQuest Hackathon Start';
-      } else if (query.includes('hello') || query.includes('hi') || query.includes('hey')) {
-        responseText = 'Hi there! I\'m here to help you navigate campus activities. What are you looking for today?';
+      if (response.data && response.data.success) {
+        setChatMessages((prev) => [...prev, { sender: 'bot', text: response.data.data }]);
       } else {
-        responseText = 'That\'s a great question! In this preview mode, I can provide information about Hackathons, AI/ML Workshops, Placement Drives, and TEDx events. Let me know if you\'d like details on any of these!';
+        setChatMessages((prev) => [
+          ...prev,
+          { sender: 'bot', text: "Unable to generate an AI response right now. Please try again later." }
+        ]);
       }
-
-      setChatMessages((prev) => [...prev, { sender: 'bot', text: responseText }]);
+    } catch (err) {
+      console.error("AI chat error:", err);
+      let errorMsg = "Unable to generate an AI response right now. Please try again later.";
+      if (err.response?.data?.message?.includes("I couldn't find any matching events in CampusHub") || 
+          err.response?.data?.error?.includes("I couldn't find any matching events in CampusHub") ||
+          err.response?.data?.message?.includes("matching records") ||
+          err.response?.data?.error?.includes("matching records")) {
+        errorMsg = "I couldn't find any matching events in CampusHub.";
+      }
+      setChatMessages((prev) => [
+        ...prev,
+        { sender: 'bot', text: errorMsg }
+      ]);
+    } finally {
       setIsAiTyping(false);
-    }, 1000);
+    }
+  };
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!chatInput.trim() || isAiTyping) return;
+    submitQuery(chatInput);
+  };
+
+  const handleSuggestionClick = (questionText) => {
+    if (isAiTyping) return;
+    submitQuery(questionText);
   };
 
   // Filter activities based on search query and category selected from navbar
@@ -334,6 +506,42 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
                   </div>
                 );
               })
+            )}
+
+            {/* Skeleton cards for loading more */}
+            {isFetchingMore && (
+              <div className="space-y-4 mt-4">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            )}
+
+            {/* Error Retry Message */}
+            {isError && (
+              <div className="flex flex-col items-center justify-center p-6 bg-slate-50 border border-slate-100 rounded-2xl shadow-xs mt-4">
+                <p className="text-xs sm:text-sm text-slate-500 font-semibold mb-2">Unable to load more events.</p>
+                <button
+                  onClick={handleRetry}
+                  type="button"
+                  className="px-4 py-1.5 bg-brand-primary text-white text-xs font-bold rounded-lg hover:bg-brand-accent transition-colors cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* End of Feed Message */}
+            {!hasMore && activities.length > 0 && (
+              <div className="text-center py-6 text-slate-500 text-xs sm:text-sm font-semibold border-t border-slate-100 mt-4">
+                You've reached the end.<br />
+                No more activities to display.
+              </div>
+            )}
+
+            {/* Invisible observer element */}
+            {hasMore && !isFetchingMore && !isLoading && !isError && (
+              <div ref={loaderRef} className="h-2 w-full" />
             )}
           </div>
 
@@ -484,7 +692,7 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div 
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs animate-backdrop-in cursor-pointer"
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-backdrop-in cursor-pointer"
             onClick={() => setIsAIModalOpen(false)}
           />
           
@@ -497,10 +705,9 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
                   🤖
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 text-sm sm:text-base">CampusHub AI Assistant</h3>
-                  <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    Online Demo Agent
+                  <h3 className="font-bold text-slate-800 text-sm sm:text-base">🤖 CampusHub AI Assistant</h3>
+                  <p className="text-[10px] text-slate-500 font-semibold leading-snug">
+                    Ask anything about campus events, placements, workshops, registrations and opportunities.
                   </p>
                 </div>
               </div>
@@ -511,6 +718,20 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
               >
                 <X className="w-4.5 h-4.5" />
               </button>
+            </div>
+
+            {/* Suggested Questions Chips */}
+            <div className="px-4 py-3 bg-slate-50/50 border-b border-slate-100 flex flex-wrap gap-2 max-h-[120px] overflow-y-auto shrink-0">
+              {SUGGESTED_QUESTIONS.map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSuggestionClick(chip.text)}
+                  className="px-2.5 py-1 bg-white border border-slate-200 hover:border-brand-accent hover:bg-slate-50 text-[10px] sm:text-xs font-semibold text-slate-600 rounded-lg transition-all cursor-pointer shadow-xs active:scale-95 shrink-0"
+                >
+                  {chip.label}
+                </button>
+              ))}
             </div>
             
             {/* Messages Area */}
@@ -526,17 +747,16 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
                         ? 'bg-brand-primary text-white rounded-tr-none'
                         : 'bg-white text-slate-800 border border-slate-100 shadow-xs rounded-tl-none'
                     }`}
-                    style={{ whiteSpace: 'pre-line' }}
-                  >
-                    {msg.text}
-                  </div>
+                    dangerouslySetInnerHTML={{ __html: msg.sender === 'user' ? msg.text : parseMarkdown(msg.text) }}
+                  />
                 </div>
               ))}
               
               {/* Typing Indicator */}
               {isAiTyping && (
                 <div className="flex justify-start">
-                  <div className="bg-white text-slate-400 border border-slate-100 shadow-xs rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-1">
+                  <div className="bg-white text-slate-500 border border-slate-100 shadow-xs rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-500">CampusHub AI is thinking...</span>
                     <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                     <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
                     <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
@@ -553,15 +773,23 @@ const EventFeed = React.forwardRef(({ selectedCategory }, ref) => {
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type your question..."
+                placeholder="Ask something about CampusHub..."
                 className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-brand-accent focus:bg-white transition-all shadow-inner"
               />
               <button
                 type="submit"
                 disabled={!chatInput.trim() || isAiTyping}
-                className="p-2.5 bg-brand-accent text-white rounded-xl hover:bg-brand-accent/95 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center cursor-pointer active:scale-95 shrink-0 shadow-sm"
+                className="px-4 py-2 bg-brand-accent text-white rounded-xl hover:bg-brand-accent/95 disabled:bg-slate-200 disabled:text-slate-400 transition-all flex items-center justify-center cursor-pointer active:scale-95 shrink-0 shadow-sm text-xs sm:text-sm font-semibold gap-1.5"
               >
+                <span>Send</span>
                 <Send className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAIModalOpen(false)}
+                className="px-4 py-2 border border-slate-200 text-slate-500 rounded-xl hover:bg-slate-50 transition-all cursor-pointer active:scale-95 shrink-0 text-xs sm:text-sm font-semibold"
+              >
+                Close
               </button>
             </form>
           </div>

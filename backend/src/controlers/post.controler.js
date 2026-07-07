@@ -18,7 +18,7 @@ const createPost = async (req, res) => {
                 message: "Description is required"
             });
         }
-        
+
         const validCategories = ['event', 'placement', 'workshop', 'hackathon', 'announcement', 'club_activity', 'others'];
         if (!category || !validCategories.includes(category)) {
             return res.status(400).json({
@@ -79,14 +79,32 @@ const createPost = async (req, res) => {
 // Get all posts (Accessible to students & coordinators)
 const getAllPosts = async (req, res) => {
     try {
+        let page = parseInt(req.query.page, 10);
+        let limit = parseInt(req.query.limit, 10);
+
+        if (isNaN(page) || page < 1) page = 1;
+        if (isNaN(limit) || limit < 1) limit = 10;
+
+        const skip = (page - 1) * limit;
+
         const posts = await postModel.find()
             .populate('createdBy', 'name email')
             .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
             .lean();
+
+        const totalPosts = await postModel.countDocuments();
+        const hasMore = (skip + posts.length) < totalPosts;
 
         return res.status(200).json({
             success: true,
-            data: posts
+            data: {
+                posts,
+                page,
+                limit,
+                hasMore
+            }
         });
     } catch (err) {
         console.error("Error in getAllPosts:", err);
@@ -312,11 +330,39 @@ const getMyPosts = async (req, res) => {
     }
 };
 
+const { askGeminiWithContext } = require('../services/ai.service');
+
+const askAiController = async (req, res) => {
+    try {
+        const { question } = req.body;
+        if (!question || !question.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Question is required"
+            });
+        }
+
+        const answer = await askGeminiWithContext(question.trim(), req.user);
+
+        return res.status(200).json({
+            success: true,
+            data: answer
+        });
+    } catch (err) {
+        console.error("Error in askAiController:", err);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error"
+        });
+    }
+};
+
 module.exports = {
     createPost,
     getAllPosts,
     getPostById,
     updatePost,
     deletePost,
-    getMyPosts
+    getMyPosts,
+    askAiController
 };

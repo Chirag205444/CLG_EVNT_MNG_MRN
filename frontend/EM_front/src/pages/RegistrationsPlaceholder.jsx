@@ -440,7 +440,7 @@ function RegistrationsPlaceholder({ user, onLogout }) {
                             </p>
                             <p className="flex items-center gap-1.5">
                               <Hash className="w-3.5 h-3.5 text-slate-400" />
-                              <span>USN: <span className="text-slate-750 font-bold">{reg.usn}</span></span>
+                              <span>USN: <span className="text-slate-700 font-bold">{reg.usn}</span></span>
                             </p>
                           </div>
                         </div>
@@ -493,7 +493,7 @@ function RegistrationsPlaceholder({ user, onLogout }) {
             <div className="flex items-center gap-3 pt-3 border-t border-slate-50">
               <button
                 onClick={() => setDeleteModal({ isOpen: false, regId: null, studentName: '' })}
-                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-550 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
+                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
               >
                 Cancel
               </button>

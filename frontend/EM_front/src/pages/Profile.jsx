@@ -324,7 +324,7 @@ function Profile({ user, onLogout }) {
             <div className="flex items-center gap-3 pt-3 border-t border-slate-50">
               <button
                 onClick={() => setIsSaveModalOpen(false)}
-                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-550 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
+                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
               >
                 Cancel
               </button>
@@ -369,7 +369,7 @@ function Profile({ user, onLogout }) {
             <div className="flex items-center gap-3 pt-3 border-t border-slate-50">
               <button
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-550 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
+                className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-bold rounded-xl transition-all cursor-pointer text-center"
                 disabled={isDeleting}
               >
                 Cancel

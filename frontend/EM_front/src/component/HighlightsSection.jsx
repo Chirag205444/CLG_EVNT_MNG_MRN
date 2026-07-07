@@ -70,7 +70,9 @@ function HighlightsSection() {
 
         if (response.data && response.data.success) {
           // Filter to only show events uploaded in the current calendar week (Monday to Sunday)
-          const currentWeekEvents = response.data.data.filter(a => {
+          const rawData = response.data.data;
+          const activitiesArray = Array.isArray(rawData) ? rawData : (rawData?.posts || []);
+          const currentWeekEvents = activitiesArray.filter(a => {
             if (!a.createdAt) return false;
             const createdDate = new Date(a.createdAt);
             const now = new Date();

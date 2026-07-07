@@ -7,7 +7,8 @@ const {
     getPostById,
     updatePost,
     deletePost,
-    getMyPosts
+    getMyPosts,
+    askAiController
 } = require('../controlers/post.controler');
 
 const authMiddleware = require('../middlewares/auth.middleware');
@@ -15,6 +16,7 @@ const coordinatorMiddleware = require('../middlewares/coordinator.Middleware');
 
 // Public route within auth context (accessible to student and coordinator)
 router.get('/', authMiddleware, getAllPosts);
+router.post('/chat', authMiddleware, askAiController);
 router.get('/my-posts', authMiddleware, coordinatorMiddleware, getMyPosts);
 router.get('/:id', authMiddleware, getPostById);
 
