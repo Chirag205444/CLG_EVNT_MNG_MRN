@@ -11,10 +11,11 @@ const validateEmail = (email) => {
 
 // Cookie configuration helper
 const getCookieOptions = () => {
+    const isProd = process.env.NODE_ENV === 'production';
     return {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     };
 };
@@ -113,10 +114,11 @@ const loginUser = async (req, res) => {
 };
 
 const logoutUser = (req, res) => {
+    const isProd = process.env.NODE_ENV === 'production';
     const clearCookieOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
+        secure: isProd,
+        sameSite: isProd ? 'none' : 'lax'
     };
     res.clearCookie("EVNT_token", clearCookieOptions);
     return res.status(200).json({ message: "User logged out successfully" });
@@ -158,10 +160,11 @@ const deleteAccount = async (req, res) => {
         // Cascade delete registrations for this student
         await registrationModel.deleteMany({ student: req.user._id });
 
+        const isProd = process.env.NODE_ENV === 'production';
         const clearCookieOptions = {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax'
+            secure: isProd,
+            sameSite: isProd ? 'none' : 'lax'
         };
         res.clearCookie("EVNT_token", clearCookieOptions);
         return res.status(200).json({ message: "Account deleted successfully" });
