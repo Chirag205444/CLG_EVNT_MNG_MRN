@@ -8,9 +8,7 @@ What makes CampusHub unique is its **AI-powered Campus Assistant**, which answer
 
 ## 🚀 Live Demo
 
-**Frontend:** https://clg-evnt-mng-n9mhv933m-chirag4.vercel.app
-
-**Backend:** *(Add your Render backend URL here)*
+**URL**:https://clg-evnt-mng-mrn-git-master-chirag4.vercel.app/
 
 ---
 
